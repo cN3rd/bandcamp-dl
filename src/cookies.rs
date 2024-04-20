@@ -2,7 +2,7 @@ use cookie::{time::OffsetDateTime, Expiration, SameSite};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct OurCookie {
     #[serde(rename = "Name raw")]
     pub name_raw: String,
@@ -10,37 +10,29 @@ pub struct OurCookie {
     pub content_raw: String,
 
     #[serde(rename = "Host raw")]
-    pub host_raw: String,
+    pub host_raw: Option<String>,
     #[serde(rename = "Path raw")]
-    pub path_raw: String,
+    pub path_raw: Option<String>,
 
-    #[serde(rename = "Expires")]
-    pub expires: String,
     #[serde(rename = "Expires raw")]
-    pub expires_raw: String,
+    pub expires_raw: Option<String>,
 
-    #[serde(rename = "Send for")]
-    pub send_for: String,
     #[serde(rename = "Send for raw")]
-    pub send_for_raw: String,
+    pub send_for_raw: Option<String>,
     #[serde(rename = "HTTP only raw")]
-    pub http_only_raw: String,
+    pub http_only_raw: Option<String>,
     #[serde(rename = "SameSite raw")]
-    pub same_site_raw: String,
-    #[serde(rename = "This domain only")]
-    pub this_domain_only: String,
+    pub same_site_raw: Option<String>,
     #[serde(rename = "This domain only raw")]
     pub this_domain_only_raw: String,
 
     #[serde(rename = "Store raw")]
     pub store_raw: Option<String>,
-    #[serde(rename = "First Party Domain")]
-    pub first_party_domain: Option<String>,
 }
 
 impl From<OurCookie> for cookie::Cookie<'_> {
     fn from(value: OurCookie) -> Self {
-        let same_site = match value.same_site_raw.as_str() {
+        let same_site = match value.same_site_raw.unwrap().as_str() {
             "no_restriction" => Some(SameSite::None),
             "lax" => Some(SameSite::Lax),
             "strict" => Some(SameSite::Strict),
@@ -48,7 +40,7 @@ impl From<OurCookie> for cookie::Cookie<'_> {
             _ => None,
         };
 
-        let expiration = if let Ok(unix_timestamp) = value.expires_raw.parse() {
+        let expiration = if let Ok(unix_timestamp) = value.expires_raw.unwrap().parse() {
             if let Ok(timestamp) = OffsetDateTime::from_unix_timestamp(unix_timestamp) {
                 Expiration::DateTime(timestamp)
             } else {
@@ -62,13 +54,14 @@ impl From<OurCookie> for cookie::Cookie<'_> {
         cookie.set_domain(
             value
                 .host_raw
+                .unwrap()
                 .replace("https://.", "")
                 .replace("http://.", "")
                 .replace('/', ""),
         );
-        cookie.set_path(value.path_raw);
-        cookie.set_secure(value.send_for_raw.parse().ok());
-        cookie.set_http_only(value.http_only_raw.parse().ok());
+        cookie.set_path(value.path_raw.unwrap());
+        cookie.set_secure(value.send_for_raw.unwrap().parse().ok());
+        cookie.set_http_only(value.http_only_raw.unwrap().parse().ok());
         cookie.set_same_site(same_site);
 
         cookie.set_expires(expiration);
