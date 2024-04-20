@@ -1,53 +1,91 @@
+#![warn(
+    clippy::all,
+    clippy::restriction,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::cargo
+)]
+
+use std::{collections::HashMap, sync::Arc};
+
+use tokio::task::JoinSet;
+
 mod api;
+mod cache;
 mod cookies;
 
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
     // TODO: pass by CLI
-    let cookie_data = include_str!("cookies.json");
+    let cookie_data = include_str!("data/cookies.json");
     let user = "cN3rd";
 
+    println!("Parsing download cache...");
+    let download_cache_data = include_str!("data/bandcamp-collection-downloader.cache");
+    let download_cache = cache::read_download_cache(download_cache_data);
+
     // build app context
-    let api_context: api::BandcampAPIContext = api::BandcampAPIContext::new(user, cookie_data);
+    let api_context = Arc::new(api::BandcampAPIContext::new(user, cookie_data));
 
-    // higher-level fetching of things, todo
+    println!("Retrieving Bandcamp Fan Page Data...");
+    let fanpage_data = api_context.get_fanpage_data().await?;
 
-    // let fan_page_blob = api_context.get_initial_fan_page_data_text().await?;
-    // if fan_page_blob.collection_data.redownload_urls.is_none()
-    //     || (fan_page_blob
-    //         .collection_data
-    //         .redownload_urls
-    //         .as_ref()
-    //         .unwrap()
-    //         .is_empty())
-    // {
-    //     println!("No download links could by found in the collection page. This can be caused by an outdated or invalid cookies file.");
-    // }
+    println!("Retreiving all releases...");
+    let releases = api_context.get_all_releases(&fanpage_data, false).await?;
 
-    // // download visible things
-    // let mut downloads = fan_page_blob.collection_data.redownload_urls.unwrap();
+    // finding releases not found in regular scopes
+    let mut digital_item_tasks = JoinSet::new();
+    for (&ref key, &ref item_url) in releases
+        .iter()
+        .filter(|&(key, _)| !download_cache.contains_key(key))
+    {
+        let item_url = item_url.clone();
+        let key = key.clone();
+        let api_context = Arc::clone(&api_context);
 
-    // downloads.extend(
-    //     api_context
-    //         .retrieve_download_urls(
-    //             fan_page_blob.fan_data.fan_id,
-    //             fan_page_blob.collection_data.last_token.unwrap().as_str(),
-    //             "collection_items",
-    //         )
-    //         .await?
-    //         .into_iter(),
-    // );
+        digital_item_tasks.spawn(async move {
+            let result = api_context.get_digital_download_item(&item_url).await;
+            (result, key)
+        });
+    }
 
-    // // download hidden (TODO)
-    // println!("{:?}", downloads);
+    let mut items_to_download = HashMap::new();
+    while let Some(result) = digital_item_tasks.join_next().await {
+        let (result, key) = result.unwrap();
+        if let Some(item_data) = result.unwrap() {
+            println!(
+                "Not found: \"{}\" by \"{}\" ({})",
+                item_data.title, item_data.artist, key
+            );
+            items_to_download.insert(key, item_data);
+        }
+    }
 
-    let _sale_id = "r178743155";
-    let url = "https://bandcamp.com/download?from=collection&payment_id=1170963116&sig=bf60707c02a8f358afa01f3cd3e020c7&sitem_id=178743155";
+    // fetch all download links
+    let download_format = "flac";
+    let mut retrieve_download_links_tasks = JoinSet::new();
+    for (key, digital_item) in items_to_download {
+        let api_context = Arc::clone(&api_context);
+        retrieve_download_links_tasks.spawn(async move {
+            let digital_item = digital_item;
+            let result = api_context
+                .get_digital_download_link(&digital_item, download_format)
+                .await;
+            (result, digital_item, key)
+        });
+    }
 
-    let bandcamp_data = api_context.retrieve_digital_download_item_data(url).await?;
-    let _link = api_context
-        .retrieve_digital_download_link(&bandcamp_data, "flac")
-        .await?;
+    while let Some(result) = retrieve_download_links_tasks.join_next().await {
+        let (result, digital_item, key) = result.unwrap();
+        let url = result?;
+
+        println!(
+            "Download link for \"{}\" by {} ({}): {}",
+            digital_item.title, digital_item.artist, key, url
+        )
+    }
+
+    // TODO: pretend download
 
     Ok(())
 }

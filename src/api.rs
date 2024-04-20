@@ -7,16 +7,6 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-fn stat_response_regex() -> &'static Regex {
-    static STAT_DOWNLOAD_REGEX: OnceLock<Regex> = OnceLock::new();
-    STAT_DOWNLOAD_REGEX.get_or_init(|| {
-        Regex::new(
-            r"if\s*\(\s*window\.Downloads\s*\)\s*\{\s*Downloads\.statResult\s*\(\s*(.*)\s*\)\s*};",
-        )
-        .unwrap()
-    })
-}
-
 #[derive(Serialize, Deserialize)]
 pub(crate) struct ParsedFanpageData {
     pub(crate) fan_data: FanData,
@@ -63,7 +53,7 @@ pub(crate) struct ParsedBandcampData {
     pub(crate) digital_items: Vec<DigitalItem>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct DownloadData {
     pub(crate) size_mb: String,
     pub(crate) description: String,
@@ -71,7 +61,7 @@ pub(crate) struct DownloadData {
     pub(crate) url: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct DigitalItem {
     pub(crate) downloads: Option<HashMap<String, DownloadData>>,
     pub(crate) package_release_date: Option<String>,
@@ -94,6 +84,16 @@ pub(crate) struct BandcampAPIContext {
     pub(crate) user_name: String,
 }
 
+fn stat_response_regex() -> &'static Regex {
+    static STAT_DOWNLOAD_REGEX: OnceLock<Regex> = OnceLock::new();
+    STAT_DOWNLOAD_REGEX.get_or_init(|| {
+        Regex::new(
+            r"if\s*\(\s*window\.Downloads\s*\)\s*\{\s*Downloads\.statResult\s*\(\s*(.*)\s*\)\s*};",
+        )
+        .unwrap()
+    })
+}
+
 impl BandcampAPIContext {
     pub(crate) fn new(user: &str, cookie_data: &str) -> Self {
         let cookie_store: cookie_store::CookieStore =
@@ -110,7 +110,7 @@ impl BandcampAPIContext {
         }
     }
 
-    pub async fn retrieve_fanpage_data(&self) -> Result<ParsedFanpageData, reqwest::Error> {
+    pub async fn get_fanpage_data(&self) -> Result<ParsedFanpageData, reqwest::Error> {
         let res = self
             .client
             .get(format!("https://bandcamp.com/{}", self.user_name))
@@ -128,11 +128,11 @@ impl BandcampAPIContext {
         Ok(parsed_fanpage_data)
     }
 
-    pub async fn retrieve_all_download_links_recursive(
+    pub async fn get_all_releases(
         &self,
         fanpage_data: &ParsedFanpageData,
         include_hidden: bool,
-    ) -> Result<(), reqwest::Error> {
+    ) -> Result<HashMap<String, String>, reqwest::Error> {
         if fanpage_data.collection_data.redownload_urls.is_none()
             || (fanpage_data
                 .collection_data
@@ -164,7 +164,7 @@ impl BandcampAPIContext {
             let last_token = fanpage_data.collection_data.last_token.clone().unwrap();
             let fan_id = fanpage_data.fan_data.fan_id;
             all_downloads.extend(
-                self.retrieve_download_urls(fan_id, &last_token, "collection_items")
+                self.get_webui_download_urls(fan_id, &last_token, "collection_items")
                     .await?
                     .into_iter(),
             );
@@ -172,17 +172,17 @@ impl BandcampAPIContext {
             if include_hidden {
                 let last_token = fanpage_data.hidden_data.last_token.clone().unwrap();
                 all_downloads.extend(
-                    self.retrieve_download_urls(fan_id, &last_token, "hidden_items")
+                    self.get_webui_download_urls(fan_id, &last_token, "hidden_items")
                         .await?
                         .into_iter(),
                 );
             }
         }
 
-        Ok(())
+        Ok(all_downloads)
     }
 
-    pub async fn retrieve_download_urls(
+    pub async fn get_webui_download_urls(
         &self,
         fan_id: i64,
         last_token: &str,
@@ -215,10 +215,10 @@ impl BandcampAPIContext {
         Ok(download_urls)
     }
 
-    pub async fn retrieve_digital_download_item_data(
+    pub async fn get_digital_download_item(
         &self,
         item_url: &str,
-    ) -> Result<ParsedBandcampData, reqwest::Error> {
+    ) -> Result<Option<DigitalItem>, reqwest::Error> {
         let response = self.client.get(item_url).send().await?;
         let response_data = response.text().await?;
 
@@ -228,31 +228,29 @@ impl BandcampAPIContext {
         let attr = selection.attr("data-blob").unwrap();
 
         let bandcamp_data: ParsedBandcampData = serde_json::from_str(attr).unwrap();
-        Ok(bandcamp_data)
-    }
-
-    pub async fn retrieve_digital_download_link(
-        &self,
-        bandcamp_data: &ParsedBandcampData,
-        download_format: &str,
-    ) -> Result<String, reqwest::Error> {
-        let unqualified = self
-            .retrieve_unqualified_digital_download_link(bandcamp_data, download_format)
-            .unwrap_or(String::from("https://google.com"));
-        self.retrieve_qualified_download_link(&unqualified).await
-    }
-
-    pub fn retrieve_unqualified_digital_download_link(
-        &self,
-        bandcamp_data: &ParsedBandcampData,
-        download_format: &str,
-    ) -> Option<String> {
-        // handle edge cases
         if bandcamp_data.digital_items.is_empty() {
-            return None;
+            return Ok(None);
         }
 
-        let digital_item = &bandcamp_data.digital_items[0];
+        Ok(Some(bandcamp_data.digital_items[0].clone()))
+    }
+
+    pub async fn get_digital_download_link(
+        &self,
+        digital_item: &DigitalItem,
+        download_format: &str,
+    ) -> Result<String, reqwest::Error> {
+        let unqualified_link = self
+            .get_unqualified_digital_download_link(digital_item, download_format)
+            .unwrap_or(String::from("https://google.com"));
+        self.qualify_digital_download_link(&unqualified_link).await
+    }
+
+    pub fn get_unqualified_digital_download_link(
+        &self,
+        digital_item: &DigitalItem,
+        download_format: &str,
+    ) -> Option<String> {
         digital_item.downloads.as_ref()?;
 
         let digital_download_list = digital_item.downloads.as_ref().unwrap();
@@ -270,16 +268,14 @@ impl BandcampAPIContext {
         );
     }
 
-    pub async fn retrieve_qualified_download_link(
+    pub async fn qualify_digital_download_link(
         &self,
         download_link: &str,
     ) -> Result<String, reqwest::Error> {
         let stat_response_body = self
             .retrieve_digital_download_stat_data(download_link)
             .await?;
-        let url = self
-            .retrieve_digital_download_url(&stat_response_body)
-            .unwrap();
+        let url = self.get_digital_download_url(&stat_response_body).unwrap();
 
         Ok(url)
     }
@@ -300,7 +296,7 @@ impl BandcampAPIContext {
         Ok(stat_download_response_body)
     }
 
-    pub fn retrieve_digital_download_url(
+    pub fn get_digital_download_url(
         &self,
         stat_response_body: &str,
     ) -> Result<String, regex::Error> {
