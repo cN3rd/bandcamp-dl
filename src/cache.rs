@@ -9,15 +9,13 @@ pub struct DownloadCacheRelease {
     artist: String,
 }
 
-pub fn cache_line_regex() -> &'static Regex {
-    static CACHE_LINE_REGEX: OnceLock<Regex> = OnceLock::new();
-    CACHE_LINE_REGEX.get_or_init(|| {
-        Regex::new(r#"(\w+)\|\s*"((?:[^"\\]*(?:\\.)?)*)" \((\w+)\) by (.*)"#).unwrap()
-    })
-}
-
 pub fn read_download_cache_line(cache_line: &str) -> DownloadCacheRelease {
-    let captures = cache_line_regex().captures(cache_line).unwrap();
+    static CACHE_LINE_REGEX_STATIC: OnceLock<Regex> = OnceLock::new();
+    let cache_line_regex = CACHE_LINE_REGEX_STATIC.get_or_init(|| {
+        Regex::new(r#"(\w+)\|\s*"((?:[^"\\]*(?:\\.)?)*)" \((\w+)\) by (.*)"#).unwrap()
+    });
+
+    let captures = cache_line_regex.captures(cache_line).unwrap();
 
     let release = DownloadCacheRelease {
         release_id: captures.get(1).unwrap().as_str().to_owned(),
