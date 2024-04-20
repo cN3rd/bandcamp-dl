@@ -2,7 +2,20 @@ use regex::Regex;
 use reqwest::Client;
 use reqwest_cookie_store::CookieStoreMutex;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, OnceLock},
+};
+
+fn stat_response_regex() -> &'static Regex {
+    static STAT_DOWNLOAD_REGEX: OnceLock<Regex> = OnceLock::new();
+    STAT_DOWNLOAD_REGEX.get_or_init(|| {
+        Regex::new(
+            r"if\s*\(\s*window\.Downloads\s*\)\s*\{\s*Downloads\.statResult\s*\(\s*(.*)\s*\)\s*};",
+        )
+        .unwrap()
+    })
+}
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct ParsedFanpageData {
@@ -79,8 +92,6 @@ pub(crate) struct ParsedStatDownload {
 pub(crate) struct BandcampAPIContext {
     pub(crate) client: Client,
     pub(crate) user_name: String,
-
-    pub(crate) retrieve_regex: Regex,
 }
 
 impl BandcampAPIContext {
@@ -93,12 +104,9 @@ impl BandcampAPIContext {
             .build()
             .unwrap();
 
-        let REGEX_TEMPLATE =
-            r"if\s*\(\s*window\.Downloads\s*\)\s*\{\s*Downloads\.statResult\s*\(\s*(.*)\s*\)\s*};";
         Self {
             client,
             user_name: user.to_owned(),
-            retrieve_regex: Regex::new(REGEX_TEMPLATE).unwrap(),
         }
     }
 
@@ -296,7 +304,7 @@ impl BandcampAPIContext {
         &self,
         stat_response_body: &str,
     ) -> Result<String, regex::Error> {
-        let captures = self.retrieve_regex.captures(stat_response_body).unwrap();
+        let captures = stat_response_regex().captures(stat_response_body).unwrap();
         let inner_json = captures.get(1).unwrap().as_str();
         let inner_data: ParsedStatDownload = serde_json::from_str(inner_json).unwrap();
         let download_link = inner_data.download_url.unwrap();
