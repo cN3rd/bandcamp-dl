@@ -1,6 +1,8 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::{collections::HashMap, path::Path, sync::OnceLock};
 
 use regex::Regex;
+
+use crate::cache;
 
 pub struct DownloadCacheRelease {
     release_id: String,
@@ -27,12 +29,29 @@ pub fn read_download_cache_line(cache_line: &str) -> DownloadCacheRelease {
     release
 }
 
-pub fn read_download_cache(cache_data: &str) -> HashMap<String, DownloadCacheRelease> {
+type DownloadCache = HashMap<String, DownloadCacheRelease>;
+
+pub fn read_download_cache(cache_data: &str) -> DownloadCache {
     cache_data
         .lines()
         .map(read_download_cache_line)
         .map(|c| (c.release_id.clone(), c))
-        .collect::<HashMap<String, DownloadCacheRelease>>()
+        .collect()
+}
+
+pub fn serialize_download_cache_release(cache_release: &DownloadCacheRelease) -> String {
+    format!(
+        "{}| \"{}\" ({}) by {}",
+        cache_release.release_id, cache_release.title, cache_release.year, cache_release.artist
+    )
+}
+
+pub fn serialize_download_cache(cache_data: DownloadCache) -> String {
+    cache_data
+        .values()
+        .map(serialize_download_cache_release)
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[cfg(test)]
@@ -41,28 +60,30 @@ mod tests {
 
     #[test]
     pub fn test_read_download_cache_regular() {
-        let cache_line: &str = r#"p199396767| "Galerie" (2022) by Anomalie"#;
-        let cached_release = read_download_cache_line(cache_line);
+        let cache_line = r#"p199396767| "Galerie" (2022) by Anomalie"#;
+        let cache_release = read_download_cache_line(cache_line);
 
-        assert_eq!(cached_release.release_id, "p199396767");
-        assert_eq!(cached_release.title, "Galerie");
-        assert_eq!(cached_release.year, 2022);
-        assert_eq!(cached_release.artist, "Anomalie");
+        assert_eq!(cache_release.release_id, "p199396767");
+        assert_eq!(cache_release.title, "Galerie");
+        assert_eq!(cache_release.year, 2022);
+        assert_eq!(cache_release.artist, "Anomalie");
     }
 
     #[test]
     pub fn test_read_download_cache_with_escaping() {
-        let cache_line: &str = r#"p204514015| "Toxic \"Violet\" Cubes [From BSWC2021 Grand Finals]" (2021) by かめりあ(Camellia)"#;
-        let cached_release = read_download_cache_line(cache_line);
+        let cache_line = r#"p204514015| "Toxic \"Violet\" Cubes [From BSWC2021 Grand Finals]" (2021) by かめりあ(Camellia)"#;
+        let cache_release = read_download_cache_line(cache_line);
 
-        assert_eq!(cached_release.release_id, "p204514015");
+        assert_eq!(cache_release.release_id, "p204514015");
         assert_eq!(
-            cached_release.title,
+            cache_release.title,
             "Toxic \\\"Violet\\\" Cubes [From BSWC2021 Grand Finals]"
         );
-        assert_eq!(cached_release.year, 2021);
-        assert_eq!(cached_release.artist, "かめりあ(Camellia)");
+        assert_eq!(cache_release.year, 2021);
+        assert_eq!(cache_release.artist, "かめりあ(Camellia)");
     }
+
+    // TODO: bad cases for read_download_cache_line, serialize_download_cache_release
 
     #[test]
     pub fn test_read_download_cache_from_file() {
@@ -70,5 +91,67 @@ mod tests {
         let cache = read_download_cache(data);
 
         assert!(cache.contains_key("p225359366"));
+    }
+
+    #[test]
+    pub fn test_serialize_normal_release() {
+        let cache_release = DownloadCacheRelease {
+            release_id: "p199396767".to_owned(),
+            title: "Galerie".to_owned(),
+            year: 2022,
+            artist: "Anomalie".to_owned(),
+        };
+        let cache_line = r#"p199396767| "Galerie" (2022) by Anomalie"#;
+
+        assert_eq!(serialize_download_cache_release(&cache_release), cache_line);
+    }
+
+    #[test]
+    pub fn test_serialize_cache_line_with_escaping() {
+        let cache_release = DownloadCacheRelease {
+            release_id: "p204514015".to_owned(),
+            title: "Toxic \\\"Violet\\\" Cubes [From BSWC2021 Grand Finals]".to_owned(),
+            year: 2021,
+            artist: "かめりあ(Camellia)".to_owned(),
+        };
+        let cache_line = r#"p204514015| "Toxic \"Violet\" Cubes [From BSWC2021 Grand Finals]" (2021) by かめりあ(Camellia)"#;
+
+        assert_eq!(serialize_download_cache_release(&cache_release), cache_line);
+    }
+
+    #[test]
+    pub fn test_round_trip_regular() {
+        let cache_release = DownloadCacheRelease {
+            release_id: "p199396767".to_owned(),
+            title: "Galerie".to_owned(),
+            year: 2022,
+            artist: "Anomalie".to_owned(),
+        };
+
+        let cache_line = serialize_download_cache_release(&cache_release);
+        let deserialized_release = read_download_cache_line(&cache_line);
+
+        assert_eq!(deserialized_release.release_id, cache_release.release_id);
+        assert_eq!(deserialized_release.title, cache_release.title);
+        assert_eq!(deserialized_release.year, cache_release.year);
+        assert_eq!(deserialized_release.artist, cache_release.artist);
+    }
+
+    #[test]
+    pub fn test_round_trip_with_escaping() {
+        let cache_release = DownloadCacheRelease {
+            release_id: "p204514015".to_owned(),
+            title: "Toxic \\\"Violet\\\" Cubes [From BSWC2021 Grand Finals]".to_owned(),
+            year: 2021,
+            artist: "かめりあ(Camellia)".to_owned(),
+        };
+
+        let cache_line = serialize_download_cache_release(&cache_release);
+        let deserialized_release = read_download_cache_line(&cache_line);
+
+        assert_eq!(deserialized_release.release_id, cache_release.release_id);
+        assert_eq!(deserialized_release.title, cache_release.title);
+        assert_eq!(deserialized_release.year, cache_release.year);
+        assert_eq!(deserialized_release.artist, cache_release.artist);
     }
 }
