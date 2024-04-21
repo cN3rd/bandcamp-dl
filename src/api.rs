@@ -94,6 +94,8 @@ fn stat_response_regex() -> &'static Regex {
     })
 }
 
+type SaleIdUrlMap = HashMap<String, String>;
+
 impl BandcampAPIContext {
     pub fn new(user: &str, cookie_data: &str) -> Self {
         let cookie_store: cookie_store::CookieStore =
@@ -132,7 +134,7 @@ impl BandcampAPIContext {
         &self,
         fanpage_data: &ParsedFanpageData,
         include_hidden: bool,
-    ) -> Result<HashMap<String, String>, reqwest::Error> {
+    ) -> Result<SaleIdUrlMap, reqwest::Error> {
         if fanpage_data.collection_data.redownload_urls.is_none()
             || (fanpage_data
                 .collection_data
@@ -161,7 +163,11 @@ impl BandcampAPIContext {
 
         // Get the rest of the non-hidden collection
         if fanpage_data.collection_data.item_count > fanpage_data.collection_data.batch_size {
-            let last_token = fanpage_data.collection_data.last_token.clone().unwrap();
+            let last_token = fanpage_data
+                .collection_data
+                .last_token
+                .clone()
+                .unwrap_or("".into());
             let fan_id = fanpage_data.fan_data.fan_id;
             all_downloads.extend(
                 self.get_webui_download_urls(fan_id, &last_token, "collection_items")
@@ -170,7 +176,11 @@ impl BandcampAPIContext {
             );
 
             if include_hidden {
-                let last_token = fanpage_data.hidden_data.last_token.clone().unwrap();
+                let last_token = fanpage_data
+                    .hidden_data
+                    .last_token
+                    .clone()
+                    .unwrap_or("".into());
                 all_downloads.extend(
                     self.get_webui_download_urls(fan_id, &last_token, "hidden_items")
                         .await?
@@ -187,7 +197,7 @@ impl BandcampAPIContext {
         fan_id: i64,
         last_token: &str,
         collection_name: &str,
-    ) -> Result<HashMap<String, String>, reqwest::Error> {
+    ) -> Result<SaleIdUrlMap, reqwest::Error> {
         let mut more_available = true;
         let mut last_token = last_token.to_owned();
         let mut download_urls: HashMap<String, String> = HashMap::new();
@@ -212,6 +222,7 @@ impl BandcampAPIContext {
             more_available = parsed_collection_data.more_available;
             last_token = parsed_collection_data.last_token;
         }
+
         Ok(download_urls)
     }
 
@@ -240,32 +251,9 @@ impl BandcampAPIContext {
         digital_item: &DigitalItem,
         download_format: &str,
     ) -> Result<String, reqwest::Error> {
-        let unqualified_link = self
-            .get_unqualified_digital_download_link(digital_item, download_format)
+        let unqualified_link = get_unqualified_digital_download_link(digital_item, download_format)
             .unwrap_or(String::from("https://google.com"));
         self.qualify_digital_download_link(&unqualified_link).await
-    }
-
-    pub fn get_unqualified_digital_download_link(
-        &self,
-        digital_item: &DigitalItem,
-        download_format: &str,
-    ) -> Option<String> {
-        digital_item.downloads.as_ref()?;
-
-        let digital_download_list = digital_item.downloads.as_ref().unwrap();
-        if digital_download_list.is_empty() || !digital_download_list.contains_key(download_format)
-        {
-            return None;
-        }
-
-        return Some(
-            digital_download_list
-                .get(download_format)
-                .unwrap()
-                .url
-                .clone(),
-        );
     }
 
     pub async fn qualify_digital_download_link(
@@ -275,7 +263,7 @@ impl BandcampAPIContext {
         let stat_response_body = self
             .retrieve_digital_download_stat_data(download_link)
             .await?;
-        let url = self.get_digital_download_url(&stat_response_body).unwrap();
+        let url = get_digital_download_url(&stat_response_body).unwrap();
 
         Ok(url)
     }
@@ -295,15 +283,32 @@ impl BandcampAPIContext {
 
         Ok(stat_download_response_body)
     }
+}
 
-    pub fn get_digital_download_url(
-        &self,
-        stat_response_body: &str,
-    ) -> Result<String, regex_lite::Error> {
-        let captures = stat_response_regex().captures(stat_response_body).unwrap();
-        let inner_json = captures.get(1).unwrap().as_str();
-        let inner_data: ParsedStatDownload = miniserde::json::from_str(inner_json).unwrap();
-        let download_link = inner_data.download_url.unwrap();
-        Ok(download_link)
+pub fn get_unqualified_digital_download_link(
+    digital_item: &DigitalItem,
+    download_format: &str,
+) -> Option<String> {
+    digital_item.downloads.as_ref()?;
+
+    let digital_download_list = digital_item.downloads.as_ref().unwrap();
+    if digital_download_list.is_empty() || !digital_download_list.contains_key(download_format) {
+        return None;
     }
+
+    return Some(
+        digital_download_list
+            .get(download_format)
+            .unwrap()
+            .url
+            .clone(),
+    );
+}
+
+pub fn get_digital_download_url(stat_response_body: &str) -> Result<String, regex_lite::Error> {
+    let captures = stat_response_regex().captures(stat_response_body).unwrap();
+    let inner_json = captures.get(1).unwrap().as_str();
+    let inner_data: ParsedStatDownload = miniserde::json::from_str(inner_json).unwrap();
+    let download_link = inner_data.download_url.unwrap();
+    Ok(download_link)
 }

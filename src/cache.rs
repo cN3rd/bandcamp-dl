@@ -1,8 +1,6 @@
-use std::{collections::HashMap, path::Path, sync::OnceLock};
+use std::{collections::HashMap, sync::OnceLock};
 
 use regex_lite::Regex;
-
-use crate::cache;
 
 pub struct DownloadCacheRelease {
     release_id: String,
