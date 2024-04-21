@@ -8,11 +8,17 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12.3", features = ["default", "cookies"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+miniserde = "0.1.39"
 cookie = "0.17"
 cookie_store = "0.20"
 reqwest_cookie_store = "0.7.0"
 scraper = "0.19.0"
 fastrand = "2"
-regex = "1.10"
+regex-lite = "0.1.5"
+
+[profile.release]
+strip = true
+lto = "thin"
+opt-level = "z"
+codegen-units = 1
+incremental = true

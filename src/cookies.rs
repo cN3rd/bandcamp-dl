@@ -1,6 +1,6 @@
 use cookie::{time::OffsetDateTime, Expiration, SameSite};
+use miniserde::{Deserialize, Serialize};
 use reqwest::Url;
-use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default)]
 pub struct OurCookie {
@@ -74,7 +74,7 @@ pub fn read_json_file(cookie_data: &str, request_url: &str) -> cookie_store::Coo
     let request_url = Url::parse(request_url).expect("valid URL expected");
 
     let store_result = cookie_store::CookieStore::from_cookies(
-        serde_json::from_str::<Vec<OurCookie>>(cookie_data)
+        miniserde::json::from_str::<Vec<OurCookie>>(cookie_data)
             .expect("proper error handling missing")
             .into_iter()
             .map(cookie::Cookie::from)

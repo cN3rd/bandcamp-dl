@@ -1,7 +1,7 @@
-use regex::Regex;
+use miniserde::{Deserialize, Serialize};
+use regex_lite::Regex;
 use reqwest::Client;
 use reqwest_cookie_store::CookieStoreMutex;
-use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     sync::{Arc, OnceLock},
@@ -123,7 +123,7 @@ impl BandcampAPIContext {
         let selection = html.select(&selector).next().unwrap();
         let attr = selection.attr("data-blob").unwrap();
 
-        let parsed_fanpage_data: ParsedFanpageData = serde_json::from_str(attr).unwrap();
+        let parsed_fanpage_data: ParsedFanpageData = miniserde::json::from_str(attr).unwrap();
 
         Ok(parsed_fanpage_data)
     }
@@ -205,7 +205,7 @@ impl BandcampAPIContext {
                 .await?;
             let response_data = response.text().await?;
             let parsed_collection_data: ParsedCollectionItems =
-                serde_json::from_str(&response_data).unwrap();
+                miniserde::json::from_str(&response_data).unwrap();
 
             download_urls.extend(parsed_collection_data.redownload_urls.into_iter());
 
@@ -227,7 +227,7 @@ impl BandcampAPIContext {
         let selection = html.select(&selector).next().unwrap();
         let attr = selection.attr("data-blob").unwrap();
 
-        let bandcamp_data: ParsedBandcampData = serde_json::from_str(attr).unwrap();
+        let bandcamp_data: ParsedBandcampData = miniserde::json::from_str(attr).unwrap();
         if bandcamp_data.digital_items.is_empty() {
             return Ok(None);
         }
@@ -299,10 +299,10 @@ impl BandcampAPIContext {
     pub fn get_digital_download_url(
         &self,
         stat_response_body: &str,
-    ) -> Result<String, regex::Error> {
+    ) -> Result<String, regex_lite::Error> {
         let captures = stat_response_regex().captures(stat_response_body).unwrap();
         let inner_json = captures.get(1).unwrap().as_str();
-        let inner_data: ParsedStatDownload = serde_json::from_str(inner_json).unwrap();
+        let inner_data: ParsedStatDownload = miniserde::json::from_str(inner_json).unwrap();
         let download_link = inner_data.download_url.unwrap();
         Ok(download_link)
     }

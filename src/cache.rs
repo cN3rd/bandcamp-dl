@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path, sync::OnceLock};
 
-use regex::Regex;
+use regex_lite::Regex;
 
 use crate::cache;
 
