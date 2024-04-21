@@ -13,8 +13,10 @@ cookie = "0.17"
 cookie_store = "0.20"
 reqwest_cookie_store = "0.7.0"
 scraper = "0.19.0"
-fastrand = "2"
+fastrand = "2.0.2"
 regex-lite = "0.1.5"
+anyhow = "1.0.82"
+thiserror = "1.0.59"
 
 [profile.release]
 strip = true
