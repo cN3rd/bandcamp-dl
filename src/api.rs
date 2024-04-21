@@ -8,80 +8,80 @@ use std::{
 };
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct ParsedFanpageData {
-    pub(crate) fan_data: FanData,
-    pub(crate) collection_data: CollectionData,
-    pub(crate) hidden_data: CollectionData,
-    pub(crate) item_cache: ItemCache,
+pub struct ParsedFanpageData {
+    pub fan_data: FanData,
+    pub collection_data: CollectionData,
+    pub hidden_data: CollectionData,
+    pub item_cache: ItemCache,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct FanData {
-    pub(crate) fan_id: i64,
+pub struct FanData {
+    pub fan_id: i64,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct ItemCache {
-    pub(crate) collection: HashMap<String, CachedItem>,
-    pub(crate) hidden: HashMap<String, CachedItem>,
+pub struct ItemCache {
+    pub collection: HashMap<String, CachedItem>,
+    pub hidden: HashMap<String, CachedItem>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct CachedItem {
-    pub(crate) sale_item_id: i64,
-    pub(crate) band_name: String,
-    pub(crate) item_title: String,
+pub struct CachedItem {
+    pub sale_item_id: i64,
+    pub band_name: String,
+    pub item_title: String,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct CollectionData {
-    pub(crate) batch_size: i64,
-    pub(crate) item_count: i64,
-    pub(crate) last_token: Option<String>,
-    pub(crate) redownload_urls: Option<HashMap<String, String>>,
+pub struct CollectionData {
+    pub batch_size: i64,
+    pub item_count: i64,
+    pub last_token: Option<String>,
+    pub redownload_urls: Option<HashMap<String, String>>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct ParsedCollectionItems {
-    pub(crate) more_available: bool,
-    pub(crate) last_token: String,
-    pub(crate) redownload_urls: HashMap<String, String>,
+pub struct ParsedCollectionItems {
+    pub more_available: bool,
+    pub last_token: String,
+    pub redownload_urls: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct ParsedBandcampData {
-    pub(crate) digital_items: Vec<DigitalItem>,
+pub struct ParsedBandcampData {
+    pub digital_items: Vec<DigitalItem>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct DownloadData {
-    pub(crate) size_mb: String,
-    pub(crate) description: String,
-    pub(crate) encoding_name: String,
-    pub(crate) url: String,
+pub struct DownloadData {
+    pub size_mb: String,
+    pub description: String,
+    pub encoding_name: String,
+    pub url: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub(crate) struct DigitalItem {
-    pub(crate) downloads: Option<HashMap<String, DownloadData>>,
-    pub(crate) package_release_date: Option<String>,
-    pub(crate) title: String,
-    pub(crate) artist: String,
-    pub(crate) download_type: String,
-    pub(crate) download_type_str: String,
-    pub(crate) item_type: String,
-    pub(crate) art_id: i64,
+pub struct DigitalItem {
+    pub downloads: Option<HashMap<String, DownloadData>>,
+    pub package_release_date: Option<String>,
+    pub title: String,
+    pub artist: String,
+    pub download_type: String,
+    pub download_type_str: String,
+    pub item_type: String,
+    pub art_id: i64,
 }
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct ParsedStatDownload {
-    pub(crate) download_url: Option<String>,
-    pub(crate) url: String,
+pub struct ParsedStatDownload {
+    pub download_url: Option<String>,
+    pub url: String,
 }
 
-pub(crate) struct BandcampAPIContext {
-    pub(crate) client: Client,
-    pub(crate) user_name: String,
+pub struct BandcampAPIContext {
+    pub client: Client,
+    pub user_name: String,
 }
 
 fn stat_response_regex() -> &'static Regex {
@@ -95,7 +95,7 @@ fn stat_response_regex() -> &'static Regex {
 }
 
 impl BandcampAPIContext {
-    pub(crate) fn new(user: &str, cookie_data: &str) -> Self {
+    pub fn new(user: &str, cookie_data: &str) -> Self {
         let cookie_store: cookie_store::CookieStore =
             crate::cookies::read_json_file(cookie_data, "https://bandcamp.com");
         let cookie_store_mutex = CookieStoreMutex::new(cookie_store);
