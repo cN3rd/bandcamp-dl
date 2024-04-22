@@ -27,7 +27,7 @@ pub struct OurCookie {
     #[serde(rename = "SameSite raw")]
     pub same_site_raw: Option<String>,
     #[serde(rename = "This domain only raw")]
-    pub this_domain_only_raw: Option<bool>,
+    pub this_domain_only_raw: Option<String>,
 
     #[serde(rename = "Store raw")]
     pub store_raw: Option<String>,
