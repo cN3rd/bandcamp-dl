@@ -71,8 +71,6 @@
 #![warn(clippy::doc_markdown)]
 #![warn(clippy::missing_errors_doc)]
 #![warn(clippy::missing_panics_doc)]
-// FIXME: We should fix instances of this lint and change it to `warn`
-#![allow(clippy::missing_safety_doc)]
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -106,23 +104,25 @@ async fn main() -> anyhow::Result<()> {
     let mut digital_item_tasks = JoinSet::new();
     for (key, item_url) in &releases {
         if !download_cache.contains_key(key) {
-            let api_context = Arc::clone(&api_context);
+            let api_context_clone = Arc::clone(&api_context);
 
             // Clone `item_url` and `key` for use in the async block
-            let item_url = item_url.clone();
-            let key = key.clone();
+            let item_url_clone = item_url.clone();
+            let key_clone = key.clone();
 
             digital_item_tasks.spawn(async move {
-                let result = api_context.get_digital_download_item(&item_url).await;
-                (result, key)
+                let result = api_context_clone
+                    .get_digital_download_item(&item_url_clone)
+                    .await;
+                (result, key_clone)
             });
         }
     }
 
     let mut items_to_download = HashMap::new();
-    while let Some(result) = digital_item_tasks.join_next().await {
-        let (result, key) = result?;
-        if let Some(item_data) = result? {
+    while let Some(task_result) = digital_item_tasks.join_next().await {
+        let (digital_item_result, key) = task_result?;
+        if let Some(item_data) = digital_item_result? {
             println!(
                 "Not found: \"{}\" by \"{}\" ({})",
                 item_data.title, item_data.artist, key

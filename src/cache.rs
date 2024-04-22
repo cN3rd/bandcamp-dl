@@ -33,7 +33,7 @@ pub fn read_download_cache_line(
 
     let captures = cache_line_regex
         .captures(cache_line)
-        .ok_or_else(|| CacheParsingError::RegexCaptureFail(cache_line))?;
+        .ok_or(CacheParsingError::RegexCaptureFail(cache_line))?;
 
     let release = DownloadCacheRelease {
         release_id: captures
