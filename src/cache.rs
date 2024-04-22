@@ -1,6 +1,7 @@
-use std::{collections::HashMap, sync::OnceLock};
+use std::{collections::HashMap, num::ParseIntError, sync::OnceLock};
 
 use regex_lite::Regex;
+use thiserror::Error;
 
 pub struct DownloadCacheRelease {
     release_id: String,
@@ -9,32 +10,66 @@ pub struct DownloadCacheRelease {
     artist: String,
 }
 
-pub fn read_download_cache_line(cache_line: &str) -> DownloadCacheRelease {
+#[derive(Debug, Error)]
+pub enum CacheParsingError<'a> {
+    #[error("Failed to match line \"{0}\" on expression")]
+    RegexCaptureFail(&'a str),
+
+    #[error("Failed to get regex group {0}")]
+    RegexGroupFail(i32),
+
+    #[error("Parse int error: {0}")]
+    ParseIntError(#[from] ParseIntError),
+}
+
+pub fn read_download_cache_line(
+    cache_line: &str,
+) -> Result<DownloadCacheRelease, CacheParsingError> {
     static CACHE_LINE_REGEX_STATIC: OnceLock<Regex> = OnceLock::new();
     let cache_line_regex = CACHE_LINE_REGEX_STATIC.get_or_init(|| {
-        Regex::new(r#"(\w+)\|\s*"((?:[^"\\]*(?:\\.)?)*)" \((\w+)\) by (.*)"#).unwrap()
+        Regex::new(r#"(\w+)\|\s*"((?:[^"\\]*(?:\\.)?)*)" \((\w+)\) by (.*)"#)
+            .expect("CACHE_LINE_REGEX must successfully compile")
     });
 
-    let captures = cache_line_regex.captures(cache_line).unwrap();
+    let captures = cache_line_regex
+        .captures(cache_line)
+        .ok_or_else(|| CacheParsingError::RegexCaptureFail(cache_line))?;
 
     let release = DownloadCacheRelease {
-        release_id: captures.get(1).unwrap().as_str().to_owned(),
-        title: captures.get(2).unwrap().as_str().to_owned(),
-        year: captures.get(3).unwrap().as_str().parse().unwrap(),
-        artist: captures.get(4).unwrap().as_str().to_owned(),
+        release_id: captures
+            .get(1)
+            .ok_or(CacheParsingError::RegexGroupFail(1))?
+            .as_str()
+            .to_owned(),
+        title: captures
+            .get(2)
+            .ok_or(CacheParsingError::RegexGroupFail(2))?
+            .as_str()
+            .to_owned(),
+        year: captures
+            .get(3)
+            .ok_or(CacheParsingError::RegexGroupFail(3))?
+            .as_str()
+            .parse()?,
+        artist: captures
+            .get(4)
+            .ok_or(CacheParsingError::RegexGroupFail(4))?
+            .as_str()
+            .to_owned(),
     };
 
-    release
+    Ok(release)
 }
 
 type DownloadCache = HashMap<String, DownloadCacheRelease>;
 
-pub fn read_download_cache(cache_data: &str) -> DownloadCache {
-    cache_data
-        .lines()
-        .map(read_download_cache_line)
+pub fn read_download_cache(cache_data: &str) -> Result<DownloadCache, CacheParsingError> {
+    let lines: Result<Vec<_>, _> = cache_data.lines().map(read_download_cache_line).collect();
+
+    Ok(lines?
+        .into_iter()
         .map(|c| (c.release_id.clone(), c))
-        .collect()
+        .collect())
 }
 
 pub fn serialize_download_cache_release(cache_release: &DownloadCacheRelease) -> String {
@@ -61,6 +96,9 @@ mod tests {
         let cache_line = r#"p199396767| "Galerie" (2022) by Anomalie"#;
         let cache_release = read_download_cache_line(cache_line);
 
+        assert!(cache_release.is_ok());
+        let cache_release = cache_release.unwrap();
+
         assert_eq!(cache_release.release_id, "p199396767");
         assert_eq!(cache_release.title, "Galerie");
         assert_eq!(cache_release.year, 2022);
@@ -71,6 +109,9 @@ mod tests {
     pub fn test_read_download_cache_with_escaping() {
         let cache_line = r#"p204514015| "Toxic \"Violet\" Cubes [From BSWC2021 Grand Finals]" (2021) by かめりあ(Camellia)"#;
         let cache_release = read_download_cache_line(cache_line);
+
+        assert!(cache_release.is_ok());
+        let cache_release = cache_release.unwrap();
 
         assert_eq!(cache_release.release_id, "p204514015");
         assert_eq!(
@@ -87,6 +128,9 @@ mod tests {
     pub fn test_read_download_cache_from_file() {
         let data = include_str!("data/bandcamp-collection-downloader.cache");
         let cache = read_download_cache(data);
+
+        assert!(cache.is_ok());
+        let cache = cache.unwrap();
 
         assert!(cache.contains_key("p225359366"));
     }
@@ -129,6 +173,9 @@ mod tests {
         let cache_line = serialize_download_cache_release(&cache_release);
         let deserialized_release = read_download_cache_line(&cache_line);
 
+        assert!(deserialized_release.is_ok());
+        let deserialized_release = deserialized_release.unwrap();
+
         assert_eq!(deserialized_release.release_id, cache_release.release_id);
         assert_eq!(deserialized_release.title, cache_release.title);
         assert_eq!(deserialized_release.year, cache_release.year);
@@ -146,6 +193,9 @@ mod tests {
 
         let cache_line = serialize_download_cache_release(&cache_release);
         let deserialized_release = read_download_cache_line(&cache_line);
+
+        assert!(deserialized_release.is_ok());
+        let deserialized_release = deserialized_release.unwrap();
 
         assert_eq!(deserialized_release.release_id, cache_release.release_id);
         assert_eq!(deserialized_release.title, cache_release.title);

@@ -6,6 +6,9 @@ use std::{
     collections::HashMap,
     sync::{Arc, OnceLock},
 };
+use thiserror::Error;
+
+use crate::cookies::CookieJsonParsingError;
 
 #[derive(Serialize, Deserialize)]
 pub struct ParsedFanpageData {
@@ -90,68 +93,98 @@ fn stat_response_regex() -> &'static Regex {
         Regex::new(
             r"if\s*\(\s*window\.Downloads\s*\)\s*\{\s*Downloads\.statResult\s*\(\s*(.*)\s*\)\s*};",
         )
-        .unwrap()
+        .expect("Regex pattern for \"stat_response_regex\" should compile successfully")
     })
 }
 
 type SaleIdUrlMap = HashMap<String, String>;
 
-impl BandcampAPIContext {
-    pub fn new(user: &str, cookie_data: &str) -> Self {
-        let cookie_store: cookie_store::CookieStore =
-            crate::cookies::read_json_file(cookie_data, "https://bandcamp.com");
-        let cookie_store_mutex = CookieStoreMutex::new(cookie_store);
-        let client = Client::builder()
-            .cookie_provider(Arc::new(cookie_store_mutex))
-            .build()
-            .unwrap();
+#[derive(Debug, Error)]
+pub enum ContextCreationError {
+    #[error("Cookie file parsing error: {0}")]
+    CookieParsingError(#[from] CookieJsonParsingError),
 
-        Self {
+    #[error("HTTP client creation error: {0}")]
+    ClientCreationError(#[from] reqwest::Error),
+}
+
+#[derive(Debug, Error)]
+pub enum InformationRetrievalError {
+    #[error("HTTP requesting error: {0}")]
+    HttpRequestError(#[from] reqwest::Error),
+
+    #[error("Json parsing error: {0}")]
+    JsonParseError(#[from] miniserde::Error),
+
+    #[error("PageData element not found")]
+    PageDataNotFoundError,
+
+    #[error("Data blob not found")]
+    DataBlobNotFoundError,
+}
+
+#[derive(Debug, Error)]
+pub enum ReleaseRetrievalError {
+    #[error("HTTP requesting error: {0}")]
+    HttpRequestError(#[from] reqwest::Error),
+
+    #[error("Json parse error: {0}")]
+    JsonParseError(#[from] miniserde::Error),
+
+    #[error("No download links found")]
+    NoDownloadLinksFound,
+}
+
+impl BandcampAPIContext {
+    pub fn new(user: &str, cookie_data: &str) -> Result<Self, ContextCreationError> {
+        let cookie_store = crate::cookies::read_json_file(cookie_data, "https://bandcamp.com")?;
+        let client = Client::builder()
+            .cookie_provider(Arc::new(CookieStoreMutex::new(cookie_store)))
+            .build()?;
+
+        Ok(Self {
             client,
             user_name: user.to_owned(),
-        }
+        })
     }
 
-    pub async fn get_fanpage_data(&self) -> Result<ParsedFanpageData, reqwest::Error> {
+    pub async fn get_fanpage_data(&self) -> Result<ParsedFanpageData, InformationRetrievalError> {
         let res = self
             .client
             .get(format!("https://bandcamp.com/{}", self.user_name))
             .send()
             .await?;
 
-        let html = res.text().await?;
-        let html = scraper::Html::parse_document(html.as_str());
-        let selector = scraper::Selector::parse("#pagedata").unwrap();
-        let selection = html.select(&selector).next().unwrap();
-        let attr = selection.attr("data-blob").unwrap();
+        let html = scraper::Html::parse_document(res.text().await?.as_str());
+        let page_data_selector = scraper::Selector::parse("#pagedata")
+            .expect("\"#pagedata\" selector must be always valid");
 
-        let parsed_fanpage_data: ParsedFanpageData = miniserde::json::from_str(attr).unwrap();
+        let page_data_element = html
+            .select(&page_data_selector)
+            .next()
+            .ok_or(InformationRetrievalError::PageDataNotFoundError)?;
 
-        Ok(parsed_fanpage_data)
+        let data_blob = page_data_element
+            .attr("data-blob")
+            .ok_or(InformationRetrievalError::DataBlobNotFoundError)?;
+
+        Ok(miniserde::json::from_str::<ParsedFanpageData>(data_blob)?)
     }
 
     pub async fn get_all_releases(
         &self,
         fanpage_data: &ParsedFanpageData,
         include_hidden: bool,
-    ) -> Result<SaleIdUrlMap, reqwest::Error> {
-        if fanpage_data.collection_data.redownload_urls.is_none()
-            || (fanpage_data
-                .collection_data
-                .redownload_urls
-                .as_ref()
-                .unwrap()
-                .is_empty())
-        {
-            println!("No download links could by found in the collection page. This can be caused by an outdated or invalid cookies file.");
-        }
-
-        // download visible things
+    ) -> Result<SaleIdUrlMap, ReleaseRetrievalError> {
         let mut all_downloads = fanpage_data
             .collection_data
             .redownload_urls
             .clone()
-            .unwrap();
+            .ok_or(ReleaseRetrievalError::NoDownloadLinksFound)?;
+
+        if all_downloads.is_empty() {
+            return Err(ReleaseRetrievalError::NoDownloadLinksFound);
+        }
 
         if !include_hidden {
             let hidden_items = &fanpage_data.item_cache.hidden;
@@ -163,29 +196,23 @@ impl BandcampAPIContext {
 
         // Get the rest of the non-hidden collection
         if fanpage_data.collection_data.item_count > fanpage_data.collection_data.batch_size {
-            let last_token = fanpage_data
-                .collection_data
-                .last_token
-                .clone()
-                .unwrap_or("".into());
-            let fan_id = fanpage_data.fan_data.fan_id;
-            all_downloads.extend(
-                self.get_webui_download_urls(fan_id, &last_token, "collection_items")
-                    .await?
-                    .into_iter(),
-            );
-
-            if include_hidden {
-                let last_token = fanpage_data
-                    .hidden_data
-                    .last_token
-                    .clone()
-                    .unwrap_or("".into());
+            let fan_id: i64 = fanpage_data.fan_data.fan_id;
+            if let Some(last_token) = &fanpage_data.collection_data.last_token {
                 all_downloads.extend(
-                    self.get_webui_download_urls(fan_id, &last_token, "hidden_items")
+                    self.get_webui_download_urls(fan_id, last_token, "collection_items")
                         .await?
                         .into_iter(),
                 );
+            }
+
+            if include_hidden {
+                if let Some(last_token) = &fanpage_data.hidden_data.last_token {
+                    all_downloads.extend(
+                        self.get_webui_download_urls(fan_id, last_token, "hidden_items")
+                            .await?
+                            .into_iter(),
+                    );
+                }
             }
         }
 
@@ -197,7 +224,7 @@ impl BandcampAPIContext {
         fan_id: i64,
         last_token: &str,
         collection_name: &str,
-    ) -> Result<SaleIdUrlMap, reqwest::Error> {
+    ) -> Result<SaleIdUrlMap, ReleaseRetrievalError> {
         let mut more_available = true;
         let mut last_token = last_token.to_owned();
         let mut download_urls: HashMap<String, String> = HashMap::new();
@@ -213,9 +240,10 @@ impl BandcampAPIContext {
                 ))
                 .send()
                 .await?;
+
             let response_data = response.text().await?;
             let parsed_collection_data: ParsedCollectionItems =
-                miniserde::json::from_str(&response_data).unwrap();
+                miniserde::json::from_str(&response_data)?;
 
             download_urls.extend(parsed_collection_data.redownload_urls.into_iter());
 
@@ -229,16 +257,24 @@ impl BandcampAPIContext {
     pub async fn get_digital_download_item(
         &self,
         item_url: &str,
-    ) -> Result<Option<DigitalItem>, reqwest::Error> {
+    ) -> Result<Option<DigitalItem>, InformationRetrievalError> {
         let response = self.client.get(item_url).send().await?;
         let response_data = response.text().await?;
 
         let html: scraper::Html = scraper::Html::parse_document(&response_data);
-        let selector = scraper::Selector::parse("#pagedata").unwrap();
-        let selection = html.select(&selector).next().unwrap();
-        let attr = selection.attr("data-blob").unwrap();
+        let page_data_selector = scraper::Selector::parse("#pagedata")
+            .expect("\"#pagedata\" selector must be always valid");
 
-        let bandcamp_data: ParsedBandcampData = miniserde::json::from_str(attr).unwrap();
+        let page_data_selector = html
+            .select(&page_data_selector)
+            .next()
+            .ok_or(InformationRetrievalError::PageDataNotFoundError)?;
+
+        let attr = page_data_selector
+            .attr("data-blob")
+            .ok_or(InformationRetrievalError::DataBlobNotFoundError)?;
+
+        let bandcamp_data = miniserde::json::from_str::<ParsedBandcampData>(attr)?;
         if bandcamp_data.digital_items.is_empty() {
             return Ok(None);
         }
@@ -250,28 +286,29 @@ impl BandcampAPIContext {
         &self,
         digital_item: &DigitalItem,
         download_format: &str,
-    ) -> Result<String, reqwest::Error> {
-        let unqualified_link = get_unqualified_digital_download_link(digital_item, download_format)
-            .unwrap_or(String::from("https://google.com"));
-        self.qualify_digital_download_link(&unqualified_link).await
+    ) -> Result<String, DigitalDownloadError> {
+        self.qualify_digital_download_link(get_unqualified_digital_download_link(
+            digital_item,
+            download_format,
+        )?)
+        .await
     }
 
     pub async fn qualify_digital_download_link(
         &self,
         download_link: &str,
-    ) -> Result<String, reqwest::Error> {
-        let stat_response_body = self
-            .retrieve_digital_download_stat_data(download_link)
-            .await?;
-        let url = get_digital_download_url(&stat_response_body).unwrap();
-
-        Ok(url)
+    ) -> Result<String, DigitalDownloadError> {
+        get_qualified_digital_download_url(
+            &self
+                .retrieve_digital_download_stat_data(download_link)
+                .await?,
+        )
     }
 
     pub async fn retrieve_digital_download_stat_data(
         &self,
         download_link: &str,
-    ) -> Result<String, reqwest::Error> {
+    ) -> Result<String, DigitalDownloadError> {
         let stat_download_url = download_link
             .replace("/download/", "/statdownload/")
             .replace("http://", "https://")
@@ -285,30 +322,59 @@ impl BandcampAPIContext {
     }
 }
 
-pub fn get_unqualified_digital_download_link(
-    digital_item: &DigitalItem,
+pub fn get_unqualified_digital_download_link<'a>(
+    digital_item: &'a DigitalItem,
     download_format: &str,
-) -> Option<String> {
-    digital_item.downloads.as_ref()?;
+) -> Result<&'a str, DigitalDownloadError> {
+    let digital_download_list = digital_item
+        .downloads
+        .as_ref()
+        .ok_or(DigitalDownloadError::NoDownloadLinksFound)?;
 
-    let digital_download_list = digital_item.downloads.as_ref().unwrap();
-    if digital_download_list.is_empty() || !digital_download_list.contains_key(download_format) {
-        return None;
+    if digital_download_list.is_empty() {
+        return Err(DigitalDownloadError::NoDownloadLinksFound);
     }
 
-    return Some(
-        digital_download_list
-            .get(download_format)
-            .unwrap()
-            .url
-            .clone(),
-    );
+    Ok(&digital_download_list
+        .get(download_format)
+        .ok_or(DigitalDownloadError::RequestedFormatLinkNotFound)?
+        .url)
 }
 
-pub fn get_digital_download_url(stat_response_body: &str) -> Result<String, regex_lite::Error> {
-    let captures = stat_response_regex().captures(stat_response_body).unwrap();
-    let inner_json = captures.get(1).unwrap().as_str();
-    let inner_data: ParsedStatDownload = miniserde::json::from_str(inner_json).unwrap();
-    let download_link = inner_data.download_url.unwrap();
-    Ok(download_link)
+pub fn get_qualified_digital_download_url(
+    stat_response_body: &str,
+) -> Result<String, DigitalDownloadError> {
+    let inner_json = stat_response_regex()
+        .captures(stat_response_body)
+        .ok_or(DigitalDownloadError::JsonBodyNotFound)?
+        .get(1)
+        .ok_or(DigitalDownloadError::JsonBodyNotFound)?
+        .as_str();
+
+    let inner_data: ParsedStatDownload = miniserde::json::from_str(inner_json)?;
+
+    inner_data
+        .download_url
+        .ok_or(DigitalDownloadError::NoLinkFound)
+}
+
+#[derive(Error, Debug)]
+pub enum DigitalDownloadError {
+    #[error("HTTP requesting error: {0}")]
+    HttpRequestError(#[from] reqwest::Error),
+
+    #[error("Json parsing error: {0}")]
+    JsonParseError(#[from] miniserde::Error),
+
+    #[error("Failed to find json body")]
+    JsonBodyNotFound,
+
+    #[error("No download links found")]
+    NoDownloadLinksFound,
+
+    #[error("No qualified download link found")]
+    NoLinkFound,
+
+    #[error("Download link in requested format not found")]
+    RequestedFormatLinkNotFound,
 }

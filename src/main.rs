@@ -1,43 +1,78 @@
-#![deny(unsafe_code)]
-#![warn(
-    clippy::cognitive_complexity,
-    clippy::dbg_macro,
-    clippy::debug_assert_with_mut_call,
-    clippy::doc_link_with_quotes,
-    clippy::doc_markdown,
-    clippy::empty_line_after_outer_attr,
-    clippy::empty_structs_with_brackets,
-    clippy::float_cmp,
-    clippy::float_cmp_const,
-    clippy::float_equality_without_abs,
-    keyword_idents,
-    clippy::missing_const_for_fn,
-    missing_copy_implementations,
-    missing_debug_implementations,
-    // clippy::missing_docs_in_private_items,
-    // clippy::missing_errors_doc,
-    // clippy::missing_panics_doc,
-    clippy::mod_module_files,
-    non_ascii_idents,
-    noop_method_call,
-    clippy::option_if_let_else,
-    clippy::print_stderr,
-    clippy::print_stdout,
-    clippy::semicolon_if_nothing_returned,
-    clippy::unseparated_literal_suffix,
-    clippy::shadow_unrelated,
-    clippy::similar_names,
-    clippy::suspicious_operation_groupings,
-    unused_crate_dependencies,
-    unused_extern_crates,
-    unused_import_braces,
-    clippy::unused_self,
-    clippy::use_debug,
-    clippy::used_underscore_binding,
-    clippy::useless_let_if_seq,
-    clippy::wildcard_dependencies,
-    clippy::wildcard_imports
-)]
+// Safety lints
+#![deny(bare_trait_objects)]
+#![deny(clippy::as_ptr_cast_mut)]
+#![deny(clippy::large_stack_arrays)]
+// Performance lints
+#![warn(clippy::inefficient_to_string)]
+#![warn(clippy::invalid_upcast_comparisons)]
+#![warn(clippy::iter_with_drain)]
+#![warn(clippy::linkedlist)]
+#![warn(clippy::mutex_integer)]
+#![warn(clippy::naive_bytecount)]
+#![warn(clippy::needless_bitwise_bool)]
+#![warn(clippy::needless_collect)]
+#![warn(clippy::or_fun_call)]
+#![warn(clippy::stable_sort_primitive)]
+#![warn(clippy::suboptimal_flops)]
+#![warn(clippy::trivial_regex)]
+#![warn(clippy::trivially_copy_pass_by_ref)]
+#![warn(clippy::unnecessary_join)]
+#![warn(clippy::unused_async)]
+#![warn(clippy::zero_sized_map_values)]
+// Correctness lints
+#![deny(clippy::case_sensitive_file_extension_comparisons)]
+#![deny(clippy::copy_iterator)]
+#![deny(clippy::expl_impl_clone_on_copy)]
+#![deny(clippy::float_cmp)]
+#![warn(clippy::imprecise_flops)]
+#![deny(clippy::manual_instant_elapsed)]
+#![deny(clippy::mem_forget)]
+#![deny(clippy::path_buf_push_overwrite)]
+#![deny(clippy::same_functions_in_if_condition)]
+#![deny(clippy::unchecked_duration_subtraction)]
+#![deny(clippy::unicode_not_nfc)]
+// Clarity/formatting lints
+#![warn(clippy::checked_conversions)]
+#![allow(clippy::comparison_chain)]
+#![warn(clippy::derive_partial_eq_without_eq)]
+#![allow(clippy::enum_variant_names)]
+#![warn(clippy::explicit_deref_methods)]
+#![warn(clippy::filter_map_next)]
+#![warn(clippy::flat_map_option)]
+#![warn(clippy::fn_params_excessive_bools)]
+#![warn(clippy::implicit_clone)]
+#![warn(clippy::iter_not_returning_iterator)]
+#![warn(clippy::iter_on_empty_collections)]
+#![warn(clippy::macro_use_imports)]
+#![warn(clippy::manual_clamp)]
+#![warn(clippy::manual_let_else)]
+#![warn(clippy::manual_ok_or)]
+#![warn(clippy::manual_string_new)]
+#![warn(clippy::map_flatten)]
+#![warn(clippy::match_bool)]
+#![warn(clippy::mut_mut)]
+#![warn(clippy::needless_borrow)]
+#![warn(clippy::needless_continue)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::too_many_arguments)]
+#![warn(clippy::range_minus_one)]
+#![warn(clippy::range_plus_one)]
+#![warn(clippy::ref_binding_to_reference)]
+#![warn(clippy::ref_option_ref)]
+#![warn(clippy::trait_duplication_in_bounds)]
+#![warn(clippy::unused_peekable)]
+#![warn(clippy::unused_rounding)]
+#![warn(clippy::unused_self)]
+#![allow(clippy::upper_case_acronyms)]
+#![warn(clippy::verbose_bit_mask)]
+#![warn(clippy::verbose_file_reads)]
+// Documentation lints
+#![warn(clippy::doc_link_with_quotes)]
+#![warn(clippy::doc_markdown)]
+#![warn(clippy::missing_errors_doc)]
+#![warn(clippy::missing_panics_doc)]
+// FIXME: We should fix instances of this lint and change it to `warn`
+#![allow(clippy::missing_safety_doc)]
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -48,17 +83,17 @@ mod cache;
 mod cookies;
 
 #[tokio::main]
-async fn main() -> Result<(), reqwest::Error> {
+async fn main() -> anyhow::Result<()> {
     // TODO: pass by CLI
     let cookie_data = include_str!("data/cookies.json");
     let user = "cN3rd";
 
     println!("Parsing download cache...");
     let download_cache_data = include_str!("data/bandcamp-collection-downloader.cache");
-    let download_cache = cache::read_download_cache(download_cache_data);
+    let download_cache = cache::read_download_cache(download_cache_data)?;
 
     // build app context
-    let api_context = Arc::new(api::BandcampAPIContext::new(user, cookie_data));
+    let api_context = Arc::new(api::BandcampAPIContext::new(user, cookie_data)?);
 
     println!("Retrieving Bandcamp Fan Page Data...");
     let fanpage_data = api_context.get_fanpage_data().await?;
@@ -85,8 +120,8 @@ async fn main() -> Result<(), reqwest::Error> {
 
     let mut items_to_download = HashMap::new();
     while let Some(result) = digital_item_tasks.join_next().await {
-        let (result, key) = result.unwrap();
-        if let Some(item_data) = result.unwrap() {
+        let (result, key) = result?;
+        if let Some(item_data) = result? {
             println!(
                 "Not found: \"{}\" by \"{}\" ({})",
                 item_data.title, item_data.artist, key
@@ -109,7 +144,7 @@ async fn main() -> Result<(), reqwest::Error> {
     }
 
     while let Some(result) = retrieve_download_links_tasks.join_next().await {
-        let (result, digital_item, key) = result.unwrap();
+        let (result, digital_item, key) = result?;
         let url = result?;
 
         println!(

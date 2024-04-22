@@ -1,6 +1,7 @@
 use cookie::{time::OffsetDateTime, Expiration, SameSite};
 use miniserde::{Deserialize, Serialize};
 use reqwest::Url;
+use thiserror::Error;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OurCookie {
@@ -47,15 +48,48 @@ impl OurCookie {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum CookieJsonParsingError {
+    #[error("Invalid store url provided: {0}")]
+    InvalidUrlProvided(String),
+
+    #[error("Cookie parsing error: {0}")]
+    CookieParsingError(#[from] cookie_store::CookieError),
+
+    #[error("Json parsing error: {0}")]
+    JsonParsingError(#[from] miniserde::Error),
+}
+
 impl From<OurCookie> for cookie::Cookie<'_> {
     fn from(value: OurCookie) -> Self {
-        let same_site = match value.same_site_raw.unwrap().as_str() {
-            "no_restriction" => Some(SameSite::None),
-            "lax" => Some(SameSite::Lax),
-            "strict" => Some(SameSite::Strict),
-            "unspecified" => None,
+        let mut cookie = cookie::Cookie::new(value.name_raw, value.content_raw);
+
+        if let Some(host_raw) = value.host_raw {
+            cookie.set_domain(
+                host_raw
+                    .replace("https://.", "")
+                    .replace("http://.", "")
+                    .replace('/', ""),
+            );
+        }
+        if let Some(path_raw) = value.path_raw {
+            cookie.set_path(path_raw);
+        }
+        if let Some(send_for_raw) = value.send_for_raw {
+            cookie.set_secure(send_for_raw.parse().ok());
+        }
+        if let Some(http_only_raw) = value.http_only_raw {
+            cookie.set_http_only(http_only_raw.parse().ok());
+        }
+
+        let same_site = match value.same_site_raw.as_deref() {
+            Some("no_restriction") => Some(SameSite::None),
+            Some("lax") => Some(SameSite::Lax),
+            Some("strict") => Some(SameSite::Strict),
+            Some("unspecified") => None,
             _ => None,
         };
+        cookie.set_same_site(same_site);
 
         let expiration = value.expires_raw.and_then(|expires_str| {
             expires_str
@@ -65,20 +99,6 @@ impl From<OurCookie> for cookie::Cookie<'_> {
                 .map(Expiration::DateTime)
                 .or(Some(Expiration::Session))
         });
-        let mut cookie = cookie::Cookie::new(value.name_raw, value.content_raw);
-        cookie.set_domain(
-            value
-                .host_raw
-                .unwrap_or("".into())
-                .replace("https://.", "")
-                .replace("http://.", "")
-                .replace('/', ""),
-        );
-        cookie.set_path(value.path_raw.unwrap());
-        cookie.set_secure(value.send_for_raw.unwrap().parse().ok());
-        cookie.set_http_only(value.http_only_raw.unwrap().parse().ok());
-        cookie.set_same_site(same_site);
-
         if let Some(expiration) = expiration {
             cookie.set_expires(expiration);
         }
@@ -87,17 +107,18 @@ impl From<OurCookie> for cookie::Cookie<'_> {
     }
 }
 
-pub fn read_json_file(cookie_data: &str, request_url: &str) -> cookie_store::CookieStore {
-    let request_url = Url::parse(request_url).expect("valid URL expected");
+pub fn read_json_file(
+    cookie_data: &str,
+    request_url: &str,
+) -> Result<cookie_store::CookieStore, CookieJsonParsingError> {
+    let request_url = Url::parse(request_url)
+        .map_err(|err| CookieJsonParsingError::InvalidUrlProvided(err.to_string()))?;
 
-    let store_result = cookie_store::CookieStore::from_cookies(
-        miniserde::json::from_str::<Vec<OurCookie>>(cookie_data)
-            .expect("proper error handling missing")
+    Ok(cookie_store::CookieStore::from_cookies(
+        miniserde::json::from_str::<Vec<OurCookie>>(cookie_data)?
             .into_iter()
             .map(cookie::Cookie::from)
-            .map(|c| cookie_store::Cookie::try_from_raw_cookie(&c, &request_url).to_owned()),
+            .map(|c| cookie_store::Cookie::try_from_raw_cookie(&c, &request_url)),
         false,
-    );
-
-    store_result.unwrap()
+    )?)
 }
