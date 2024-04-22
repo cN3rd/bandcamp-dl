@@ -30,10 +30,10 @@ pub enum InformationRetrievalError {
     JsonParseError(#[from] miniserde::Error),
 
     #[error("PageData element not found")]
-    PageDataNotFoundError,
+    PageDataNotFound,
 
     #[error("Data blob not found")]
-    DataBlobNotFoundError,
+    DataBlobNotFound,
 }
 
 #[derive(Debug, Error)]

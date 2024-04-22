@@ -128,11 +128,11 @@ impl BandcampAPIContext {
         let page_data_element = html
             .select(&page_data_selector)
             .next()
-            .ok_or(InformationRetrievalError::PageDataNotFoundError)?;
+            .ok_or(InformationRetrievalError::PageDataNotFound)?;
 
         let data_blob = page_data_element
             .attr("data-blob")
-            .ok_or(InformationRetrievalError::DataBlobNotFoundError)?;
+            .ok_or(InformationRetrievalError::DataBlobNotFound)?;
 
         Ok(miniserde::json::from_str::<ParsedFanpageData>(data_blob)?)
     }
@@ -234,11 +234,11 @@ impl BandcampAPIContext {
         let page_data_selector = html
             .select(&page_data_selector)
             .next()
-            .ok_or(InformationRetrievalError::PageDataNotFoundError)?;
+            .ok_or(InformationRetrievalError::PageDataNotFound)?;
 
         let attr = page_data_selector
             .attr("data-blob")
-            .ok_or(InformationRetrievalError::DataBlobNotFoundError)?;
+            .ok_or(InformationRetrievalError::DataBlobNotFound)?;
 
         let bandcamp_data = miniserde::json::from_str::<ParsedBandcampData>(attr)?;
         if bandcamp_data.digital_items.is_empty() {
