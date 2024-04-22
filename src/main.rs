@@ -81,6 +81,7 @@ use tokio::task::JoinSet;
 mod api;
 mod cache;
 mod cookies;
+mod error;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

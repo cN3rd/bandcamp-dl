@@ -3,6 +3,8 @@ use miniserde::{Deserialize, Serialize};
 use reqwest::Url;
 use thiserror::Error;
 
+use crate::error::CookieJsonParsingError;
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OurCookie {
     #[serde(rename = "Name raw")]
@@ -46,18 +48,6 @@ impl OurCookie {
             store_raw: None,
         }
     }
-}
-
-#[derive(Debug, Error)]
-pub enum CookieJsonParsingError {
-    #[error("Invalid store url provided: {0}")]
-    InvalidUrlProvided(String),
-
-    #[error("Cookie parsing error: {0}")]
-    CookieParsingError(#[from] cookie_store::CookieError),
-
-    #[error("Json parsing error: {0}")]
-    JsonParsingError(#[from] miniserde::Error),
 }
 
 impl From<OurCookie> for cookie::Cookie<'_> {
