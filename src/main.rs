@@ -72,12 +72,6 @@
 #![warn(clippy::missing_errors_doc)]
 #![warn(clippy::missing_panics_doc)]
 
-use std::{collections::HashMap, sync::Arc};
-
-use tokio::task::JoinSet;
-
-use crate::api::DownloadFormat;
-
 mod api;
 mod cache;
 mod cli;
