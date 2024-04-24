@@ -3,6 +3,7 @@ use std::{collections::HashMap, num::ParseIntError, sync::OnceLock};
 use regex_lite::Regex;
 use thiserror::Error;
 
+#[derive(Debug)]
 pub struct DownloadCacheRelease {
     release_id: String,
     title: String,
@@ -90,6 +91,7 @@ pub fn serialize_download_cache(cache_data: DownloadCache) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_matches::assert_matches;
 
     #[test]
     pub fn test_read_download_cache_regular() {
@@ -103,6 +105,22 @@ mod tests {
         assert_eq!(cache_release.title, "Galerie");
         assert_eq!(cache_release.year, 2022);
         assert_eq!(cache_release.artist, "Anomalie");
+    }
+
+    #[test]
+    pub fn test_read_download_cache_invalid_cases() {
+        assert_matches!(
+            read_download_cache("Hi this is a test"),
+            Err(CacheParsingError::RegexCaptureFail(_))
+        );
+        assert_matches!(
+            read_download_cache(r#"pewpew1234| "ABCD" (1234) by"#),
+            Err(CacheParsingError::RegexCaptureFail(_))
+        );
+        assert_matches!(
+            read_download_cache(r#"pewpew1234| "ABCD" (hello)"#),
+            Err(CacheParsingError::RegexCaptureFail(_))
+        );
     }
 
     #[test]
@@ -121,8 +139,6 @@ mod tests {
         assert_eq!(cache_release.year, 2021);
         assert_eq!(cache_release.artist, "かめりあ(Camellia)");
     }
-
-    // TODO: bad cases for read_download_cache_line, serialize_download_cache_release
 
     #[test]
     pub fn test_read_download_cache_from_file() {
@@ -168,6 +184,27 @@ mod tests {
             title: "Galerie".to_owned(),
             year: 2022,
             artist: "Anomalie".to_owned(),
+        };
+
+        let cache_line = serialize_download_cache_release(&cache_release);
+        let deserialized_release = read_download_cache_line(&cache_line);
+
+        assert!(deserialized_release.is_ok());
+        let deserialized_release = deserialized_release.unwrap();
+
+        assert_eq!(deserialized_release.release_id, cache_release.release_id);
+        assert_eq!(deserialized_release.title, cache_release.title);
+        assert_eq!(deserialized_release.year, cache_release.year);
+        assert_eq!(deserialized_release.artist, cache_release.artist);
+    }
+
+    #[test]
+    pub fn test_round_trip_minimal() {
+        let cache_release = DownloadCacheRelease {
+            release_id: "p0".to_owned(),
+            title: "".to_owned(),
+            year: 0,
+            artist: "".to_owned(),
         };
 
         let cache_line = serialize_download_cache_release(&cache_release);

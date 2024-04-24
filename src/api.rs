@@ -6,7 +6,6 @@ use std::{
     collections::HashMap,
     sync::{Arc, OnceLock},
 };
-use thiserror::Error;
 
 use crate::error::{
     ContextCreationError, DigitalDownloadError, InformationRetrievalError, ReleaseRetrievalError,
@@ -102,16 +101,14 @@ fn stat_response_regex() -> &'static Regex {
 type SaleIdUrlMap = HashMap<String, String>;
 
 impl BandcampAPIContext {
-    pub fn new(user: &str, cookie_data: &str) -> Result<Self, ContextCreationError> {
+    pub fn new(user_name: &str, cookie_data: &str) -> Result<Self, ContextCreationError> {
         let cookie_store = crate::cookies::read_json_file(cookie_data, "https://bandcamp.com")?;
         let client = Client::builder()
             .cookie_provider(Arc::new(CookieStoreMutex::new(cookie_store)))
             .build()?;
+        let user_name = user_name.to_owned();
 
-        Ok(Self {
-            client,
-            user_name: user.to_owned(),
-        })
+        Ok(Self { client, user_name })
     }
 
     pub async fn get_fanpage_data(&self) -> Result<ParsedFanpageData, InformationRetrievalError> {
