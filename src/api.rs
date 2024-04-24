@@ -4,12 +4,77 @@ use reqwest::Client;
 use reqwest_cookie_store::CookieStoreMutex;
 use std::{
     collections::HashMap,
+    str::FromStr,
     sync::{Arc, OnceLock},
 };
 
 use crate::error::{
     ContextCreationError, DigitalDownloadError, InformationRetrievalError, ReleaseRetrievalError,
 };
+
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub enum DownloadFormat {
+    #[serde(rename = "mp3-v0")]
+    MP3v0,
+
+    #[serde(rename = "mp3-320")]
+    MP3_320,
+
+    #[serde(rename = "flac")]
+    FLAC,
+
+    #[serde(rename = "aac-hi")]
+    AAC,
+
+    #[serde(rename = "vorbis")]
+    Vorbis,
+
+    #[serde(rename = "alac")]
+    ALAC,
+
+    #[serde(rename = "wav")]
+    WAV,
+
+    #[serde(rename = "aiff-lossless")]
+    AIFFLossless,
+}
+
+impl std::fmt::Display for DownloadFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            Self::MP3v0 => "mp3-v0",
+            Self::MP3_320 => "mp3-320",
+            Self::FLAC => "flac",
+            Self::AAC => "aac-hi",
+            Self::Vorbis => "vorbis",
+            Self::ALAC => "alac",
+            Self::WAV => "wav",
+            Self::AIFFLossless => "aiff-lossless",
+        };
+        write!(f, "({str})")
+    }
+}
+
+#[derive(Debug)]
+pub struct ParseDownloadFormatError;
+
+impl FromStr for DownloadFormat {
+    type Err = ParseDownloadFormatError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "mp3-v0" => Ok(Self::MP3v0),
+            "mp3-320" => Ok(Self::MP3_320),
+            "flac" => Ok(Self::FLAC),
+            "aac-hi" => Ok(Self::AAC),
+            "vorbis" => Ok(Self::Vorbis),
+            "alac" => Ok(Self::ALAC),
+            "wav" => Ok(Self::WAV),
+            "aiff-lossless" => Ok(Self::AIFFLossless),
+            _ => Err(ParseDownloadFormatError),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct ParsedFanpageData {
@@ -67,7 +132,7 @@ pub struct DownloadData {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DigitalItem {
-    pub downloads: Option<HashMap<String, DownloadData>>,
+    pub downloads: Option<HashMap<DownloadFormat, DownloadData>>,
     pub package_release_date: Option<String>,
     pub title: String,
     pub artist: String,
@@ -248,7 +313,7 @@ impl BandcampAPIContext {
     pub async fn get_digital_download_link(
         &self,
         digital_item: &DigitalItem,
-        download_format: &str,
+        download_format: DownloadFormat,
     ) -> Result<String, DigitalDownloadError> {
         self.qualify_digital_download_link(get_unqualified_digital_download_link(
             digital_item,
@@ -287,7 +352,7 @@ impl BandcampAPIContext {
 
 pub fn get_unqualified_digital_download_link<'a>(
     digital_item: &'a DigitalItem,
-    download_format: &str,
+    download_format: DownloadFormat,
 ) -> Result<&'a str, DigitalDownloadError> {
     let digital_download_list = digital_item
         .downloads
@@ -299,7 +364,7 @@ pub fn get_unqualified_digital_download_link<'a>(
     }
 
     Ok(&digital_download_list
-        .get(download_format)
+        .get(&download_format)
         .ok_or(DigitalDownloadError::RequestedFormatLinkNotFound)?
         .url)
 }

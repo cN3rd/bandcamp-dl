@@ -76,6 +76,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use tokio::task::JoinSet;
 
+use crate::api::DownloadFormat;
+
 mod api;
 mod cache;
 mod cookies;
@@ -132,7 +134,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // fetch all download links
-    let download_format = "flac";
+    let download_format = DownloadFormat::FLAC;
     let mut retrieve_download_links_tasks = JoinSet::new();
     for (key, digital_item) in items_to_download {
         let api_context = Arc::clone(&api_context);
