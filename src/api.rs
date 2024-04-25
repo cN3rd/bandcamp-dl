@@ -106,7 +106,7 @@ pub struct CachedItem {
 #[derive(Serialize, Deserialize)]
 pub struct CollectionData {
     pub batch_size: i64,
-    pub item_count: i64,
+    pub item_count: Option<i64>,
     pub last_token: Option<String>,
     pub redownload_urls: Option<HashMap<String, String>>,
 }
@@ -224,23 +224,25 @@ impl BandcampAPIContext {
         }
 
         // Get the rest of the non-hidden collection
-        if fanpage_data.collection_data.item_count > fanpage_data.collection_data.batch_size {
-            let fan_id: i64 = fanpage_data.fan_data.fan_id;
-            if let Some(last_token) = &fanpage_data.collection_data.last_token {
-                all_downloads.extend(
-                    self.get_webui_download_urls(fan_id, last_token, "collection_items")
-                        .await?
-                        .into_iter(),
-                );
-            }
-
-            if include_hidden {
-                if let Some(last_token) = &fanpage_data.hidden_data.last_token {
+        if let Some(item_count) = fanpage_data.collection_data.item_count {
+            if item_count > fanpage_data.collection_data.batch_size {
+                let fan_id: i64 = fanpage_data.fan_data.fan_id;
+                if let Some(last_token) = &fanpage_data.collection_data.last_token {
                     all_downloads.extend(
-                        self.get_webui_download_urls(fan_id, last_token, "hidden_items")
+                        self.get_webui_download_urls(fan_id, last_token, "collection_items")
                             .await?
                             .into_iter(),
                     );
+                }
+
+                if include_hidden {
+                    if let Some(last_token) = &fanpage_data.hidden_data.last_token {
+                        all_downloads.extend(
+                            self.get_webui_download_urls(fan_id, last_token, "hidden_items")
+                                .await?
+                                .into_iter(),
+                        );
+                    }
                 }
             }
         }
