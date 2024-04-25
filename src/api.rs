@@ -1,3 +1,4 @@
+use clap::ValueEnum;
 use miniserde::{Deserialize, Serialize};
 use regex_lite::Regex;
 use reqwest::Client;
@@ -12,10 +13,10 @@ use crate::error::{
     ContextCreationError, DigitalDownloadError, InformationRetrievalError, ReleaseRetrievalError,
 };
 
-#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Debug, ValueEnum)]
 pub enum DownloadFormat {
     #[serde(rename = "mp3-v0")]
-    MP3v0,
+    MP3_V0,
 
     #[serde(rename = "mp3-320")]
     MP3_320,
@@ -42,7 +43,7 @@ pub enum DownloadFormat {
 impl std::fmt::Display for DownloadFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            Self::MP3v0 => "mp3-v0",
+            Self::MP3_V0 => "mp3-v0",
             Self::MP3_320 => "mp3-320",
             Self::FLAC => "flac",
             Self::AAC => "aac-hi",
@@ -63,7 +64,7 @@ impl FromStr for DownloadFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "mp3-v0" => Ok(Self::MP3v0),
+            "mp3-v0" => Ok(Self::MP3_V0),
             "mp3-320" => Ok(Self::MP3_320),
             "flac" => Ok(Self::FLAC),
             "aac-hi" => Ok(Self::AAC),
@@ -163,7 +164,7 @@ fn stat_response_regex() -> &'static Regex {
     })
 }
 
-type SaleIdUrlMap = HashMap<String, String>;
+pub type SaleIdUrlMap = HashMap<String, String>;
 
 impl BandcampAPIContext {
     pub fn new(user_name: &str, cookie_data: &str) -> Result<Self, ContextCreationError> {

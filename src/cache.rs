@@ -62,7 +62,7 @@ pub fn read_download_cache_line(
     Ok(release)
 }
 
-type DownloadCache = HashMap<String, DownloadCacheRelease>;
+pub type DownloadCache = HashMap<String, DownloadCacheRelease>;
 
 pub fn read_download_cache(cache_data: &str) -> Result<DownloadCache, CacheParsingError> {
     let lines: Result<Vec<_>, _> = cache_data.lines().map(read_download_cache_line).collect();
