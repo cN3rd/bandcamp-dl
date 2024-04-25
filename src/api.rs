@@ -13,6 +13,7 @@ use crate::error::{
     ContextCreationError, DigitalDownloadError, InformationRetrievalError, ReleaseRetrievalError,
 };
 
+#[allow(non_camel_case_types)]
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Debug, ValueEnum)]
 pub enum DownloadFormat {
     #[serde(rename = "mp3-v0")]
@@ -353,10 +354,10 @@ impl BandcampAPIContext {
     }
 }
 
-pub fn get_unqualified_digital_download_link<'a>(
-    digital_item: &'a DigitalItem,
+pub fn get_unqualified_digital_download_link(
+    digital_item: &DigitalItem,
     download_format: DownloadFormat,
-) -> Result<&'a str, DigitalDownloadError> {
+) -> Result<&str, DigitalDownloadError> {
     let digital_download_list = digital_item
         .downloads
         .as_ref()
