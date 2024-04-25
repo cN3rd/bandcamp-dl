@@ -50,7 +50,6 @@ pub async fn main() -> anyhow::Result<()> {
 pub(crate) async fn do_rest(cli: Cli) -> anyhow::Result<()> {
     // TODO: pass by CLI
     let cookie_data = std::fs::read_to_string(cli.cookie_file)?;
-    println!("{cookie_data}");
     let user = cli.user;
 
     println!("Parsing download cache...");

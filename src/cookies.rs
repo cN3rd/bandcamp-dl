@@ -1,8 +1,7 @@
-use cookie::{time::OffsetDateTime, Expiration, SameSite};
-use miniserde::{Deserialize, Serialize};
-use reqwest::Url;
-
 use crate::error::CookieJsonParsingError;
+use cookie::{time::OffsetDateTime, Expiration, SameSite};
+use reqwest::Url;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OurCookie {
@@ -111,7 +110,7 @@ pub fn read_json_file(
         .map_err(|err| CookieJsonParsingError::InvalidUrlProvided(err.to_string()))?;
 
     Ok(cookie_store::CookieStore::from_cookies(
-        miniserde::json::from_str::<Vec<OurCookie>>(cookie_data)?
+        serde_json::from_str::<Vec<OurCookie>>(cookie_data)?
             .into_iter()
             .map(cookie::Cookie::from)
             .map(|c| cookie_store::Cookie::try_from_raw_cookie(&c, &request_url)),

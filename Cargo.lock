@@ -121,11 +121,12 @@ dependencies = [
  "cookie",
  "cookie_store",
  "fastrand",
- "miniserde",
  "regex-lite",
  "reqwest",
  "reqwest_cookie_store",
  "scraper",
+ "serde",
+ "serde_json",
  "test-case",
  "thiserror",
  "tokio",
@@ -741,28 +742,6 @@ name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
-
-[[package]]
-name = "mini-internal"
-version = "0.1.39"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f28c501b91dabb672c4b303fb6ea259022ab21ed8d06a457ac21b70e479fb367"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.60",
-]
-
-[[package]]
-name = "miniserde"
-version = "0.1.39"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd044c3b41ba1d92e3dbeef687ecfe5d1dcbd8b4fa1d33610f5ce5546ad6aac1"
-dependencies = [
- "itoa",
- "mini-internal",
- "ryu",
-]
 
 [[package]]
 name = "miniz_oxide"

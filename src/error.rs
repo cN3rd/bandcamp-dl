@@ -9,7 +9,7 @@ pub enum CookieJsonParsingError {
     CookieParsingError(#[from] cookie_store::CookieError),
 
     #[error("Json parsing error: {0}")]
-    JsonParsingError(#[from] miniserde::Error),
+    JsonParsingError(#[from] serde_json::Error),
 }
 
 #[derive(Debug, Error)]
@@ -27,7 +27,7 @@ pub enum InformationRetrievalError {
     HttpRequestError(#[from] reqwest::Error),
 
     #[error("Json parsing error: {0}")]
-    JsonParseError(#[from] miniserde::Error),
+    JsonParseError(#[from] serde_json::Error),
 
     #[error("PageData element not found")]
     PageDataNotFound,
@@ -42,7 +42,7 @@ pub enum ReleaseRetrievalError {
     HttpRequestError(#[from] reqwest::Error),
 
     #[error("Json parse error: {0}")]
-    JsonParseError(#[from] miniserde::Error),
+    JsonParseError(#[from] serde_json::Error),
 
     #[error("No download links found")]
     NoDownloadLinksFound,
@@ -54,7 +54,7 @@ pub enum DigitalDownloadError {
     HttpRequestError(#[from] reqwest::Error),
 
     #[error("Json parsing error: {0}")]
-    JsonParseError(#[from] miniserde::Error),
+    JsonParseError(#[from] serde_json::Error),
 
     #[error("Failed to find json body")]
     JsonBodyNotFound,

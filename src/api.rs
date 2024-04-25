@@ -1,8 +1,8 @@
 use clap::ValueEnum;
-use miniserde::{Deserialize, Serialize};
 use regex_lite::Regex;
 use reqwest::Client;
 use reqwest_cookie_store::CookieStoreMutex;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     str::FromStr,
@@ -197,7 +197,7 @@ impl BandcampAPIContext {
             .attr("data-blob")
             .ok_or(InformationRetrievalError::DataBlobNotFound)?;
 
-        Ok(miniserde::json::from_str::<ParsedFanpageData>(data_blob)?)
+        Ok(serde_json::from_str::<ParsedFanpageData>(data_blob)?)
     }
 
     pub async fn get_all_releases(
@@ -272,7 +272,7 @@ impl BandcampAPIContext {
 
             let response_data = response.text().await?;
             let parsed_collection_data: ParsedCollectionItems =
-                miniserde::json::from_str(&response_data)?;
+                serde_json::from_str(&response_data)?;
 
             download_urls.extend(parsed_collection_data.redownload_urls.into_iter());
 
@@ -303,7 +303,7 @@ impl BandcampAPIContext {
             .attr("data-blob")
             .ok_or(InformationRetrievalError::DataBlobNotFound)?;
 
-        let bandcamp_data = miniserde::json::from_str::<ParsedBandcampData>(attr)?;
+        let bandcamp_data = serde_json::from_str::<ParsedBandcampData>(attr)?;
         if bandcamp_data.digital_items.is_empty() {
             return Ok(None);
         }
@@ -380,7 +380,7 @@ pub fn get_qualified_digital_download_url(
         .ok_or(DigitalDownloadError::JsonBodyNotFound)?
         .as_str();
 
-    let inner_data: ParsedStatDownload = miniserde::json::from_str(inner_json)?;
+    let inner_data: ParsedStatDownload = serde_json::from_str(inner_json)?;
 
     inner_data
         .download_url
