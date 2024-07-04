@@ -34,51 +34,36 @@ pub struct Cli {
     dry_run: bool,
 }
 
-pub async fn main() -> anyhow::Result<()> {
-    let mut args = Cli::try_parse_from(&["bandcamp-dl", "--cookie-file", "0.txt", "cnf"])?;
-
-    // TODO: proper parsing. for now let's just do this:
-    args.user = "cnf".to_owned();
-    args.cookie_file =
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/data/cookies.json");
-
-    println!("{:?}", args.cookie_file);
-
-    do_rest(args).await
-}
-
-pub(crate) async fn do_rest(cli: Cli) -> anyhow::Result<()> {
-    // TODO: pass by CLI
-    let cookie_data = std::fs::read_to_string(cli.cookie_file)?;
-    let user = cli.user;
-
+pub(crate) async fn run_program(cli: Cli) -> anyhow::Result<()> {
     println!("Parsing download cache...");
     let download_cache_data = include_str!("data/bandcamp-collection-downloader.cache");
     let download_cache = cache::read_download_cache(download_cache_data)?;
 
     // build app context
-    let api_context = Arc::new(api::BandcampAPIContext::new(&user, &cookie_data)?);
+    let cookie_data = std::fs::read_to_string(cli.cookie_file)?;
+    let api_context = Arc::new(api::BandcampAPIContext::new(&cli.user, &cookie_data)?);
 
     println!("Retrieving Bandcamp Fan Page Data...");
     let fanpage_data = api_context.get_fanpage_data().await?;
 
     println!("Retrieving all releases...");
-    let releases = api_context.get_all_releases(&fanpage_data, false).await?;
+    let releases = api_context
+        .get_all_releases(&fanpage_data, !cli.skip_hidden)
+        .await?;
 
     // finding releases not found in regular scopes
     println!("Finding new releases...");
     let items_to_download = find_new_releases(releases, download_cache, &api_context).await?;
 
     // fetch all download links
-    let download_format = api::DownloadFormat::FLAC;
-    println!("Fetching releases in {download_format}...");
+    println!("Fetching releases in {}...", cli.audio_format);
 
     let mut retrieve_download_links_tasks = JoinSet::new();
     for (key, digital_item) in items_to_download {
         let api_context = Arc::clone(&api_context);
         retrieve_download_links_tasks.spawn(async move {
             let result = api_context
-                .get_digital_download_link(&digital_item, download_format)
+                .get_digital_download_link(&digital_item, cli.audio_format)
                 .await;
             (result, digital_item, key)
         });

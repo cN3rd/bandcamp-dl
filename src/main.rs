@@ -72,6 +72,8 @@
 #![warn(clippy::missing_errors_doc)]
 #![warn(clippy::missing_panics_doc)]
 
+use clap::Parser;
+
 mod api;
 mod cache;
 mod cli;
@@ -80,5 +82,5 @@ mod error;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    cli::main().await
+    cli::run_program(cli::Cli::try_parse()?).await
 }
