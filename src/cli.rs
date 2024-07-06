@@ -1,6 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use tokio::task::JoinSet;
+use trauma::{download::Download, downloader::DownloaderBuilder};
 
 use crate::{api, cache};
 use clap::Parser;
@@ -69,9 +70,13 @@ pub(crate) async fn run_program(cli: Cli) -> anyhow::Result<()> {
         });
     }
 
+    let mut downloads = Vec::new();
+
     while let Some(result) = retrieve_download_links_tasks.join_next().await {
         let (result, digital_item, key) = result?;
         let url = result?;
+
+        downloads.push(Download::try_from(url.as_str()).unwrap());
 
         println!(
             "Download link for \"{}\" by {} ({}): {}",
@@ -79,7 +84,13 @@ pub(crate) async fn run_program(cli: Cli) -> anyhow::Result<()> {
         );
     }
 
-    // TODO: pretend download
+    if !cli.dry_run {
+        let downloader = DownloaderBuilder::new()
+            .directory(PathBuf::from(cli.download_folder.unwrap()))
+            .build();
+
+        downloader.download(&downloads).await;
+    }
 
     Ok(())
 }
