@@ -2,6 +2,12 @@
 name = "bandcamp-dl"
 version = "0.1.0"
 edition = "2021"
+authors = ["cN3rd <subs.in.tokyo@gmail.com>"]
+description = "A utility for downloading your entire bandcamp collection"
+license = "AGPL-3.0-only"
+repository = "https://github.com/cN3rd/bandcamp-dl"
+keywords = ["cli", "bdcl", "bandcamp", "bandcamp-downloader", "bandcamp-dl", "music", "downloader" ]
+categories = ["command-line-utilities", "multimedia::audio"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
