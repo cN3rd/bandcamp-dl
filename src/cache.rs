@@ -146,7 +146,16 @@ mod tests {
         assert!(cache.is_ok());
         let cache = cache.unwrap();
 
-        assert!(cache.contains_key("p225359366"));
+        assert!(cache.contains_key("p199397400"));
+        assert!(cache.contains_key("r181302019"));
+        assert!(cache.contains_key("p159984809"));
+        assert!(cache.contains_key("r162120728"));
+        assert!(cache.contains_key("p201283050"));
+        assert!(cache.contains_key("r199923425"));
+        assert!(cache.contains_key("p184250921"));
+        assert!(cache.contains_key("r199923431"));
+        assert!(cache.contains_key("p131887899"));
+        assert!(cache.contains_key("r178743158"));
     }
 
     #[test]
