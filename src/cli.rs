@@ -1,9 +1,9 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use tokio::task::JoinSet;
 use trauma::{download::Download, downloader::DownloaderBuilder};
 
-use crate::{api, cache};
+use crate::{api, cache::{self, DownloadCache}};
 use clap::Parser;
 
 #[derive(Parser, PartialEq, Eq)]
@@ -30,15 +30,25 @@ pub struct Cli {
     )]
     download_folder: Option<std::path::PathBuf>,
 
+    #[arg(long, value_hint = clap::ValueHint::FilePath)]
+    #[arg(help="Path to cache file. If no value is given, defaults to \"bandcamp-collection-downloader.cache\" in the download_folder. ")]
+    cache_file: Option<std::path::PathBuf>,
+
     #[arg(long)]
     #[arg(help = "Fetch information correctly but don't actually download.")]
     dry_run: bool,
 }
 
 pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
+    let download_folder = cli.download_folder.unwrap_or_else(||std::env::current_dir().expect("error getting cwd"));
+    let cache_file_path = cli.cache_file.unwrap_or_else(||download_folder.join("./bandcamp-collection-downloader.cache"));
+
+    println!("Download folder: {download_folder:?}");
+    println!("Cache file: {cache_file_path:?}");
+
     println!("Parsing download cache...");
-    let download_cache_data = include_str!("data/bandcamp-collection-downloader.cache");
-    let download_cache = cache::read_download_cache(download_cache_data)?;
+    let download_cache_data = std::fs::read_to_string(&cache_file_path)?;
+    let download_cache: DownloadCache = cache::read_download_cache(&download_cache_data)?;
 
     // build app context
     let cookie_data = std::fs::read_to_string(cli.cookie_file)?;
@@ -86,7 +96,7 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
 
     if !cli.dry_run {
         let downloader = DownloaderBuilder::new()
-            .directory(cli.download_folder.unwrap())
+            .directory(download_folder)
             .build();
 
         downloader.download(&downloads).await;

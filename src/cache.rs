@@ -12,13 +12,11 @@ pub struct DownloadCacheRelease {
 }
 
 #[derive(Debug, Error)]
-pub enum CacheParsingError<'a> {
+pub enum CacheParsingError {
     #[error("Failed to match line \"{0}\" on expression")]
-    RegexCaptureFail(&'a str),
-
+    RegexCaptureFail(String),
     #[error("Failed to get regex group {0}")]
     RegexGroupFail(i32),
-
     #[error("Parse int error: {0}")]
     ParseIntError(#[from] ParseIntError),
 }
@@ -34,7 +32,7 @@ pub fn read_download_cache_line(
 
     let captures = cache_line_regex
         .captures(cache_line)
-        .ok_or(CacheParsingError::RegexCaptureFail(cache_line))?;
+        .ok_or_else(|| CacheParsingError::RegexCaptureFail(cache_line.to_string()))?;
 
     let release = DownloadCacheRelease {
         release_id: captures
