@@ -80,7 +80,7 @@ pub fn serialize_download_cache_release(cache_release: &DownloadCacheRelease) ->
     )
 }
 
-pub fn serialize_download_cache(cache_data: DownloadCache) -> String {
+pub fn serialize_download_cache(cache_data: &DownloadCache) -> String {
     cache_data
         .values()
         .map(serialize_download_cache_release)

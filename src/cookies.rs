@@ -4,46 +4,46 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct OurCookie {
+pub struct RawCookie {
     #[serde(rename = "Name raw")]
-    pub name_raw: String,
+    pub name: String,
     #[serde(rename = "Content raw")]
-    pub content_raw: String,
+    pub content: String,
 
     #[serde(rename = "Host raw")]
-    pub host_raw: Option<String>,
+    pub host: Option<String>,
     #[serde(rename = "Path raw")]
-    pub path_raw: Option<String>,
+    pub path: Option<String>,
 
     #[serde(rename = "Expires raw")]
-    pub expires_raw: Option<String>,
+    pub expires: Option<String>,
 
     #[serde(rename = "Send for raw")]
-    pub send_for_raw: Option<String>,
+    pub send_for: Option<String>,
     #[serde(rename = "HTTP only raw")]
-    pub http_only_raw: Option<String>,
+    pub http_only: Option<String>,
     #[serde(rename = "SameSite raw")]
-    pub same_site_raw: Option<String>,
+    pub same_site: Option<String>,
     #[serde(rename = "This domain only raw")]
-    pub this_domain_only_raw: Option<String>,
+    pub this_domain_only: Option<String>,
 
     #[serde(rename = "Store raw")]
-    pub store_raw: Option<String>,
+    pub store: Option<String>,
 }
 
-impl OurCookie {
+impl RawCookie {
     pub fn new(name: &str, content: &str) -> Self {
         Self {
-            name_raw: name.to_owned(),
-            content_raw: content.to_owned(),
-            host_raw: None,
-            path_raw: None,
-            expires_raw: None,
-            send_for_raw: None,
-            http_only_raw: None,
-            same_site_raw: None,
-            this_domain_only_raw: None,
-            store_raw: None,
+            name: name.to_owned(),
+            content: content.to_owned(),
+            host: None,
+            path: None,
+            expires: None,
+            send_for: None,
+            http_only: None,
+            same_site: None,
+            this_domain_only: None,
+            store: None,
         }
     }
 }
@@ -63,16 +63,16 @@ fn parse_same_site(same_site: Option<&str>) -> Option<SameSite> {
         Some("no_restriction") => Some(SameSite::None),
         Some("lax") => Some(SameSite::Lax),
         Some("strict") => Some(SameSite::Strict),
-        Some("unspecified") => None,
+        // Some("unspecified") => None,
         _ => None,
     }
 }
 
-impl From<OurCookie> for cookie::Cookie<'_> {
-    fn from(value: OurCookie) -> Self {
-        let mut cookie = cookie::Cookie::new(value.name_raw, value.content_raw);
+impl From<RawCookie> for cookie::Cookie<'_> {
+    fn from(value: RawCookie) -> Self {
+        let mut cookie = cookie::Cookie::new(value.name, value.content);
 
-        if let Some(host_raw) = value.host_raw {
+        if let Some(host_raw) = value.host {
             cookie.set_domain(
                 host_raw
                     .replace("https://.", "")
@@ -80,20 +80,20 @@ impl From<OurCookie> for cookie::Cookie<'_> {
                     .replace('/', ""),
             );
         }
-        if let Some(path_raw) = value.path_raw {
+        if let Some(path_raw) = value.path {
             cookie.set_path(path_raw);
         }
-        if let Some(send_for_raw) = value.send_for_raw {
+        if let Some(send_for_raw) = value.send_for {
             cookie.set_secure(send_for_raw.parse().ok());
         }
-        if let Some(http_only_raw) = value.http_only_raw {
+        if let Some(http_only_raw) = value.http_only {
             cookie.set_http_only(http_only_raw.parse().ok());
         }
 
-        let same_site = parse_same_site(value.same_site_raw.as_deref());
+        let same_site = parse_same_site(value.same_site.as_deref());
         cookie.set_same_site(same_site);
 
-        let expiration = parse_expiration(value.expires_raw.as_deref());
+        let expiration = parse_expiration(value.expires.as_deref());
         if let Some(expiration) = expiration {
             cookie.set_expires(expiration);
         }
@@ -110,7 +110,7 @@ pub fn read_json_file(
         .map_err(|err| CookieJsonParsingError::InvalidUrlProvided(err.to_string()))?;
 
     Ok(cookie_store::CookieStore::from_cookies(
-        serde_json::from_str::<Vec<OurCookie>>(cookie_data)?
+        serde_json::from_str::<Vec<RawCookie>>(cookie_data)?
             .into_iter()
             .map(cookie::Cookie::from)
             .map(|c| cookie_store::Cookie::try_from_raw_cookie(&c, &request_url)),
@@ -180,15 +180,15 @@ mod test {
 
     #[test]
     pub fn ourcookie_new_ok() {
-        let cookie_data = OurCookie::new("name", "content");
+        let cookie_data = RawCookie::new("name", "content");
 
-        assert_eq!(cookie_data.name_raw, "name");
-        assert_eq!(cookie_data.content_raw, "content");
+        assert_eq!(cookie_data.name, "name");
+        assert_eq!(cookie_data.content, "content");
     }
 
     #[test]
     pub fn cookie_from_minimal_ourcookie_ok() {
-        let cookie_data = OurCookie::new("name", "content");
+        let cookie_data = RawCookie::new("name", "content");
         let cookie = Cookie::from(cookie_data);
 
         assert_eq!(cookie.name(), "name");
@@ -197,17 +197,17 @@ mod test {
 
     #[test]
     pub fn cookie_from_complex_ourcookie_ok() {
-        let cookie_data = OurCookie {
-            name_raw: "fan_visits".to_owned(),
-            content_raw: "1234567".to_owned(),
-            host_raw: Some("http://.bandcamp.com/".to_owned()),
-            path_raw: Some("/".to_owned()),
-            expires_raw: Some("1919434332".to_owned()),
-            send_for_raw: Some("false".to_owned()),
-            http_only_raw: Some("false".to_owned()),
-            same_site_raw: Some("no_restriction".to_owned()),
-            this_domain_only_raw: Some("false".to_owned()),
-            store_raw: Some("firefox-default".to_owned()),
+        let cookie_data = RawCookie {
+            name: "fan_visits".to_owned(),
+            content: "1234567".to_owned(),
+            host: Some("http://.bandcamp.com/".to_owned()),
+            path: Some("/".to_owned()),
+            expires: Some("1919434332".to_owned()),
+            send_for: Some("false".to_owned()),
+            http_only: Some("false".to_owned()),
+            same_site: Some("no_restriction".to_owned()),
+            this_domain_only: Some("false".to_owned()),
+            store: Some("firefox-default".to_owned()),
         };
         let cookie = Cookie::from(cookie_data);
 
@@ -224,17 +224,17 @@ mod test {
 
     #[test]
     pub fn cookie_from_partial_ourcookie_ok() {
-        let cookie_data = OurCookie {
-            name_raw: "fan_visits".to_owned(),
-            content_raw: "1234567".to_owned(),
-            host_raw: Some("http://.bandcamp.com/".to_owned()),
-            path_raw: None,
-            expires_raw: None,
-            send_for_raw: Some("false".to_owned()),
-            http_only_raw: Some("false".to_owned()),
-            same_site_raw: None,
-            this_domain_only_raw: Some("false".to_owned()),
-            store_raw: Some("firefox-default".to_owned()),
+        let cookie_data = RawCookie {
+            name: "fan_visits".to_owned(),
+            content: "1234567".to_owned(),
+            host: Some("http://.bandcamp.com/".to_owned()),
+            path: None,
+            expires: None,
+            send_for: Some("false".to_owned()),
+            http_only: Some("false".to_owned()),
+            same_site: None,
+            this_domain_only: Some("false".to_owned()),
+            store: Some("firefox-default".to_owned()),
         };
         let cookie = Cookie::from(cookie_data);
 

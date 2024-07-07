@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use tokio::task::JoinSet;
 use trauma::{download::Download, downloader::DownloaderBuilder};
@@ -20,7 +20,7 @@ pub struct Cli {
     #[arg(help = "Don't download hidden items in the collection.")]
     skip_hidden: bool,
 
-    #[arg(long, value_enum, default_value_t = api::DownloadFormat::FLAC)]
+    #[arg(long, value_enum, default_value_t = api::DownloadFormat::Flac)]
     #[arg(help = "The audio format requested for newly downloaded audio.")]
     audio_format: api::DownloadFormat,
 
@@ -35,7 +35,7 @@ pub struct Cli {
     dry_run: bool,
 }
 
-pub(crate) async fn run_program(cli: Cli) -> anyhow::Result<()> {
+pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
     println!("Parsing download cache...");
     let download_cache_data = include_str!("data/bandcamp-collection-downloader.cache");
     let download_cache = cache::read_download_cache(download_cache_data)?;
@@ -86,7 +86,7 @@ pub(crate) async fn run_program(cli: Cli) -> anyhow::Result<()> {
 
     if !cli.dry_run {
         let downloader = DownloaderBuilder::new()
-            .directory(PathBuf::from(cli.download_folder.unwrap()))
+            .directory(cli.download_folder.unwrap())
             .build();
 
         downloader.download(&downloads).await;

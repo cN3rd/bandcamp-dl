@@ -17,41 +17,41 @@ use crate::error::{
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, Debug, ValueEnum)]
 pub enum DownloadFormat {
     #[serde(rename = "mp3-v0")]
-    MP3_V0,
+    Mp3_V0,
 
     #[serde(rename = "mp3-320")]
-    MP3_320,
+    Mp3_320,
 
     #[serde(rename = "flac")]
-    FLAC,
+    Flac,
 
     #[serde(rename = "aac-hi")]
-    AAC,
+    Aac,
 
     #[serde(rename = "vorbis")]
     Vorbis,
 
     #[serde(rename = "alac")]
-    ALAC,
+    Alac,
 
     #[serde(rename = "wav")]
-    WAV,
+    Wav,
 
     #[serde(rename = "aiff-lossless")]
-    AIFFLossless,
+    AiffLossless,
 }
 
 impl std::fmt::Display for DownloadFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            Self::MP3_V0 => "mp3-v0",
-            Self::MP3_320 => "mp3-320",
-            Self::FLAC => "flac",
-            Self::AAC => "aac-hi",
+            Self::Mp3_V0 => "mp3-v0",
+            Self::Mp3_320 => "mp3-320",
+            Self::Flac => "flac",
+            Self::Aac => "aac-hi",
             Self::Vorbis => "vorbis",
-            Self::ALAC => "alac",
-            Self::WAV => "wav",
-            Self::AIFFLossless => "aiff-lossless",
+            Self::Alac => "alac",
+            Self::Wav => "wav",
+            Self::AiffLossless => "aiff-lossless",
         };
         write!(f, "({str})")
     }
@@ -65,14 +65,14 @@ impl FromStr for DownloadFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "mp3-v0" => Ok(Self::MP3_V0),
-            "mp3-320" => Ok(Self::MP3_320),
-            "flac" => Ok(Self::FLAC),
-            "aac-hi" => Ok(Self::AAC),
+            "mp3-v0" => Ok(Self::Mp3_V0),
+            "mp3-320" => Ok(Self::Mp3_320),
+            "flac" => Ok(Self::Flac),
+            "aac-hi" => Ok(Self::Aac),
             "vorbis" => Ok(Self::Vorbis),
-            "alac" => Ok(Self::ALAC),
-            "wav" => Ok(Self::WAV),
-            "aiff-lossless" => Ok(Self::AIFFLossless),
+            "alac" => Ok(Self::Alac),
+            "wav" => Ok(Self::Wav),
+            "aiff-lossless" => Ok(Self::AiffLossless),
             _ => Err(ParseDownloadFormatError),
         }
     }
