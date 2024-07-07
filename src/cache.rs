@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     pub fn test_read_download_cache_from_file() {
-        let data = include_str!("data/bandcamp-collection-downloader.cache");
+        let data = include_str!("data/fake/bandcamp-collection-downloader.cache");
         let cache = read_download_cache(data);
 
         assert!(cache.is_ok());
