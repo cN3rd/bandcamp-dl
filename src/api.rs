@@ -165,6 +165,14 @@ fn stat_response_regex() -> &'static Regex {
     })
 }
 
+fn data_blob_regex() -> &'static Regex {
+    static DATA_BLOB_REGEX: OnceLock<Regex> = OnceLock::new();
+    DATA_BLOB_REGEX.get_or_init(|| {
+        Regex::new(r#"(?s)<div\s+(?:[^>]*?\s+)?id="pagedata"(?:\s+[^>]*?)?\s+data-blob="((?:[^"\\]|\\.)*)""#)
+            .expect("Regex pattern for \"data_blob_regex\" should compile successfully")
+    })
+}
+
 pub type SaleIdUrlMap = HashMap<String, String>;
 
 impl BandcampAPIContext {
@@ -179,26 +187,22 @@ impl BandcampAPIContext {
     }
 
     pub async fn get_fanpage_data(&self) -> Result<ParsedFanpageData, InformationRetrievalError> {
-        let res = self
+        let response = self
             .client
             .get(format!("https://bandcamp.com/{}", self.user_name))
             .send()
             .await?;
+        let response_body = response.text().await?;
 
-        let html = scraper::Html::parse_document(res.text().await?.as_str());
-        let page_data_selector = scraper::Selector::parse("#pagedata")
-            .expect("\"#pagedata\" selector must be always valid");
+        let data_blob = data_blob_regex()
+            .captures(&response_body)
+            .ok_or(InformationRetrievalError::DataBlobNotFound)?
+            .get(1)
+            .ok_or(InformationRetrievalError::DataBlobNotFound)?
+            .as_str();
+        let data_blob = htmlize::unescape(data_blob);
 
-        let page_data_element = html
-            .select(&page_data_selector)
-            .next()
-            .ok_or(InformationRetrievalError::PageDataNotFound)?;
-
-        let data_blob = page_data_element
-            .attr("data-blob")
-            .ok_or(InformationRetrievalError::DataBlobNotFound)?;
-
-        Ok(serde_json::from_str::<ParsedFanpageData>(data_blob)?)
+        Ok(serde_json::from_str::<ParsedFanpageData>(&data_blob)?)
     }
 
     pub async fn get_all_releases(
@@ -293,20 +297,15 @@ impl BandcampAPIContext {
         let response = self.client.get(item_url).send().await?;
         let response_data = response.text().await?;
 
-        let html: scraper::Html = scraper::Html::parse_document(&response_data);
-        let page_data_selector = scraper::Selector::parse("#pagedata")
-            .expect("\"#pagedata\" selector must be always valid");
+        let data_blob = data_blob_regex()
+            .captures(&response_data)
+            .ok_or(InformationRetrievalError::DataBlobNotFound)?
+            .get(1)
+            .ok_or(InformationRetrievalError::DataBlobNotFound)?
+            .as_str();
+        let data_blob = htmlize::unescape(data_blob);
 
-        let page_data_selector = html
-            .select(&page_data_selector)
-            .next()
-            .ok_or(InformationRetrievalError::PageDataNotFound)?;
-
-        let attr = page_data_selector
-            .attr("data-blob")
-            .ok_or(InformationRetrievalError::DataBlobNotFound)?;
-
-        let bandcamp_data = serde_json::from_str::<ParsedBandcampData>(attr)?;
+        let bandcamp_data = serde_json::from_str::<ParsedBandcampData>(&data_blob)?;
         if bandcamp_data.digital_items.is_empty() {
             return Ok(None);
         }
