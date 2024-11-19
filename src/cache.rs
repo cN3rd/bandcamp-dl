@@ -11,6 +11,17 @@ pub struct DownloadCacheRelease {
     artist: String,
 }
 
+impl DownloadCacheRelease {
+    pub fn new(release_id: &str, title: &str, year: i32, artist: &str) -> Self {
+        Self {
+            release_id: release_id.into(),
+            title: title.into(),
+            year,
+            artist: artist.into(),
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum CacheParsingError {
     #[error("Failed to match line \"{0}\" on expression")]

@@ -1,11 +1,11 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use tokio::task::JoinSet;
 use trauma::{download::Download, downloader::DownloaderBuilder};
 
 use crate::{
-    api,
-    cache::{self, DownloadCache},
+    api::{self},
+    cache::{self, serialize_download_cache, DownloadCache, DownloadCacheRelease},
 };
 use clap::Parser;
 
@@ -39,7 +39,7 @@ pub struct Cli {
     )]
     cache_file: Option<std::path::PathBuf>,
 
-    #[arg(long)]
+    #[arg(long, action)]
     #[arg(help = "Fetch information correctly but don't actually download.")]
     dry_run: bool,
 }
@@ -53,11 +53,14 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
         .unwrap_or_else(|| download_folder.join("./bandcamp-collection-downloader.cache"));
 
     println!("Download folder: {download_folder:?}");
-    println!("Cache file: {cache_file_path:?}");
 
-    println!("Parsing download cache...");
-    let download_cache_data = std::fs::read_to_string(&cache_file_path)?;
-    let download_cache: DownloadCache = cache::read_download_cache(&download_cache_data)?;
+    let mut download_cache = if std::fs::exists(&cache_file_path)? {
+        println!("Download cache exists. Parsing...");
+        let download_cache_data = std::fs::read_to_string(&cache_file_path)?;
+        cache::read_download_cache(&download_cache_data)?
+    } else {
+        DownloadCache::new()
+    };
 
     // build app context
     let cookie_data = std::fs::read_to_string(cli.cookie_file)?;
@@ -73,7 +76,7 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
 
     // finding releases not found in regular scopes
     println!("Finding new releases...");
-    let items_to_download = find_new_releases(releases, download_cache, &api_context).await?;
+    let items_to_download = find_new_releases(releases, &download_cache, &api_context).await?;
 
     // fetch all download links
     println!("Fetching releases in {}...", cli.audio_format);
@@ -97,6 +100,12 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
 
         downloads.push(Download::try_from(url.as_str()).unwrap());
 
+        if !cli.dry_run {
+            let cached_item =
+                DownloadCacheRelease::new(&key, &digital_item.title, 2022, &digital_item.artist); // TODO year
+            download_cache.insert(key.clone(), cached_item);
+        }
+
         println!(
             "Download link for \"{}\" by {} ({}): {}",
             digital_item.title, digital_item.artist, key, url
@@ -104,17 +113,20 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
     }
 
     if !cli.dry_run {
-        let downloader = DownloaderBuilder::new().directory(download_folder).build();
-
-        downloader.download(&downloads).await;
+        return Ok(());
     }
+
+    let downloader = DownloaderBuilder::new().directory(download_folder).build();
+    downloader.download(&downloads).await;
+
+    std::fs::write(cache_file_path, serialize_download_cache(&download_cache))?;
 
     Ok(())
 }
 
 async fn find_new_releases(
     releases: api::SaleIdUrlMap,
-    download_cache: cache::DownloadCache,
+    download_cache: &cache::DownloadCache,
     api_context: &Arc<api::BandcampAPIContext>,
 ) -> Result<HashMap<String, api::DigitalItem>, anyhow::Error> {
     let mut digital_item_tasks = JoinSet::new();
