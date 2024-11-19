@@ -5,37 +5,34 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RawCookie {
-    #[serde(rename = "Name raw")]
     pub name: String,
-    #[serde(rename = "Content raw")]
-    pub content: String,
+    pub value: String,
 
-    #[serde(rename = "Host raw")]
+    #[serde(default)]
     pub host: Option<String>,
-    #[serde(rename = "Path raw")]
+    #[serde(default)]
     pub path: Option<String>,
 
-    #[serde(rename = "Expires raw")]
+    #[serde(default)]
     pub expires: Option<String>,
 
-    #[serde(rename = "Send for raw")]
+    #[serde(default)]
     pub send_for: Option<String>,
-    #[serde(rename = "HTTP only raw")]
+    #[serde(default)]
     pub http_only: Option<String>,
-    #[serde(rename = "SameSite raw")]
+    #[serde(default)]
     pub same_site: Option<String>,
-    #[serde(rename = "This domain only raw")]
+    #[serde(default)]
     pub this_domain_only: Option<String>,
 
-    #[serde(rename = "Store raw")]
     pub store: Option<String>,
 }
 
 impl RawCookie {
-    pub fn new(name: &str, content: &str) -> Self {
+    pub const fn new(name: String, value: String) -> Self {
         Self {
-            name: name.to_owned(),
-            content: content.to_owned(),
+            name,
+            value,
             host: None,
             path: None,
             expires: None,
@@ -49,11 +46,11 @@ impl RawCookie {
 }
 
 fn parse_expiration(expire_str_option: Option<&str>) -> Option<Expiration> {
-    expire_str_option.and_then(|expires_str| {
-        expires_str
-            .parse::<i64>()
+    expire_str_option.and_then(|expires| {
+        expires
+            .parse()
             .ok()
-            .and_then(|unix_timestamp| OffsetDateTime::from_unix_timestamp(unix_timestamp).ok())
+            .and_then(|ts| OffsetDateTime::from_unix_timestamp(ts).ok())
             .map(Expiration::DateTime)
     })
 }
@@ -68,11 +65,15 @@ fn parse_same_site(same_site: Option<&str>) -> Option<SameSite> {
     }
 }
 
-impl From<RawCookie> for cookie::Cookie<'_> {
-    fn from(value: RawCookie) -> Self {
-        let mut cookie = cookie::Cookie::new(value.name, value.content);
+fn parse_bool_option(value: Option<&String>) -> Option<bool> {
+    value.and_then(|v| v.parse().ok())
+}
 
-        if let Some(host_raw) = value.host {
+impl From<RawCookie> for cookie::Cookie<'_> {
+    fn from(raw_cookie: RawCookie) -> Self {
+        let mut cookie = cookie::Cookie::new(raw_cookie.name, raw_cookie.value);
+
+        if let Some(host_raw) = raw_cookie.host {
             cookie.set_domain(
                 host_raw
                     .replace("https://.", "")
@@ -80,20 +81,22 @@ impl From<RawCookie> for cookie::Cookie<'_> {
                     .replace('/', ""),
             );
         }
-        if let Some(path_raw) = value.path {
+        if let Some(path_raw) = raw_cookie.path {
             cookie.set_path(path_raw);
         }
-        if let Some(send_for_raw) = value.send_for {
-            cookie.set_secure(send_for_raw.parse().ok());
-        }
-        if let Some(http_only_raw) = value.http_only {
-            cookie.set_http_only(http_only_raw.parse().ok());
+
+        if let Some(secure) = parse_bool_option(raw_cookie.send_for.as_ref()) {
+            cookie.set_secure(secure);
         }
 
-        let same_site = parse_same_site(value.same_site.as_deref());
+        if let Some(http_only) = parse_bool_option(raw_cookie.http_only.as_ref()) {
+            cookie.set_http_only(http_only);
+        }
+
+        let same_site = parse_same_site(raw_cookie.same_site.as_deref());
         cookie.set_same_site(same_site);
 
-        let expiration = parse_expiration(value.expires.as_deref());
+        let expiration = parse_expiration(raw_cookie.expires.as_deref());
         if let Some(expiration) = expiration {
             cookie.set_expires(expiration);
         }
@@ -109,8 +112,10 @@ pub fn read_json_file(
     let request_url = Url::parse(request_url)
         .map_err(|err| CookieJsonParsingError::InvalidUrlProvided(err.to_string()))?;
 
+    let cookies: Vec<RawCookie> = serde_json::from_str(cookie_data)?;
+
     Ok(cookie_store::CookieStore::from_cookies(
-        serde_json::from_str::<Vec<RawCookie>>(cookie_data)?
+        cookies
             .into_iter()
             .map(cookie::Cookie::from)
             .map(|c| cookie_store::Cookie::try_from_raw_cookie(&c, &request_url)),
@@ -180,26 +185,26 @@ mod test {
 
     #[test]
     pub fn ourcookie_new_ok() {
-        let cookie_data = RawCookie::new("name", "content");
+        let cookie_data = RawCookie::new("name".into(), "value".into());
 
         assert_eq!(cookie_data.name, "name");
-        assert_eq!(cookie_data.content, "content");
+        assert_eq!(cookie_data.value, "value");
     }
 
     #[test]
     pub fn cookie_from_minimal_ourcookie_ok() {
-        let cookie_data = RawCookie::new("name", "content");
+        let cookie_data = RawCookie::new("name".into(), "value".into());
         let cookie = Cookie::from(cookie_data);
 
         assert_eq!(cookie.name(), "name");
-        assert_eq!(cookie.value(), "content");
+        assert_eq!(cookie.value(), "value");
     }
 
     #[test]
     pub fn cookie_from_complex_ourcookie_ok() {
         let cookie_data = RawCookie {
             name: "fan_visits".to_owned(),
-            content: "1234567".to_owned(),
+            value: "1234567".to_owned(),
             host: Some("http://.bandcamp.com/".to_owned()),
             path: Some("/".to_owned()),
             expires: Some("1919434332".to_owned()),
@@ -226,7 +231,7 @@ mod test {
     pub fn cookie_from_partial_ourcookie_ok() {
         let cookie_data = RawCookie {
             name: "fan_visits".to_owned(),
-            content: "1234567".to_owned(),
+            value: "1234567".to_owned(),
             host: Some("http://.bandcamp.com/".to_owned()),
             path: None,
             expires: None,
