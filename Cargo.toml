@@ -6,29 +6,37 @@ authors = ["cN3rd <subs.in.tokyo@gmail.com>"]
 description = "A utility for downloading your entire bandcamp collection"
 license = "AGPL-3.0-only"
 repository = "https://github.com/cN3rd/bandcamp-dl"
-keywords = ["cli", "bdcl", "bandcamp", "bandcamp-downloader", "bandcamp-dl", "music", "downloader" ]
+keywords = [
+    "cli",
+    "bdcl",
+    "bandcamp",
+    "bandcamp-downloader",
+    "bandcamp-dl",
+    "music",
+    "downloader",
+]
 categories = ["command-line-utilities", "multimedia::audio"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = [
     "rt-multi-thread",
     "macros",
 ], default-features = false }
-reqwest = { version = "0.12.5", features = ["cookies"] }
+reqwest = { version = "0.12", features = ["cookies"] }
 cookie = "0.18"
 cookie_store = "0.21"
 reqwest_cookie_store = "0.8.0"
-scraper = "0.19.0"
-fastrand = "2.1"
+scraper = "0.21.0"
+fastrand = "2.2"
 regex-lite = "0.1.6"
 anyhow = "1"
 thiserror = "1"
 clap = { version = "4", features = ["derive"] }
 serde_json = "1.0"
-trauma = "2.2.5"
+trauma = "2.2.6"
 
 [dev-dependencies]
 assert_matches = "1.5"
