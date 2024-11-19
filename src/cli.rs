@@ -16,7 +16,9 @@ pub struct Cli {
     user: String,
 
     #[arg(short, long, value_hint = clap::ValueHint::DirPath)]
-    #[arg(help = "Cookie file to read, in the format of \"cookies.txt\".")]
+    #[arg(
+        help = "Cookie file to read, in the `JSON` format exported from `Get \"cookies.txt\" Locally` (see: https://github.com/kairi003/Get-cookies.txt-LOCALLY)."
+    )]
     cookie_file: std::path::PathBuf,
 
     #[arg(long)]
