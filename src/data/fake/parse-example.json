@@ -1,0 +1,250 @@
+{
+    "recaptcha_public_key": "EXAMPLE_RECAPTCHA_123",
+    "invisible_recaptcha_public_key": "EXAMPLE_INVISIBLE_456",
+    "localize_page": true,
+    "locale": "en",
+    "languages": {
+        "en": "English",
+        "de": "Deutsch",
+        "es": "Español",
+        "fr": "Français",
+        "pt": "Português",
+        "ja": "日本語"
+    },
+    "help_center_url": "https://get.bandcamp.help/hc/en-us",
+    "templglobals": {
+        "endpoint_mobilized": true,
+        "is_phone": false
+    },
+    "cfg": {
+        "stat_dl_json": true,
+        "mobile_app": true,
+        "gifting": true,
+        "open_signup": true,
+        "menubar_autocomplete_enabled": true,
+        "use_elasticsearch_backed_search": true,
+        "new_search_api_service": true,
+        "search_tracking": true,
+        "single_sign_up": true,
+        "fan_signup_use_captcha": true,
+        "gift_cards": true,
+        "order_history": true,
+        "header_rework_2018": true,
+        "search_discovery_one_filter_desktop_only": true,
+        "search_discovery_one_filter_rollout": true,
+        "community": true,
+        "login_use_captcha": true
+    },
+    "identities": {
+        "user": {
+            "id": 100000001
+        },
+        "ip_country_code": null,
+        "fan": {
+            "id": 200000001,
+            "username": "example_fan",
+            "name": "Example Fan",
+            "photo": null,
+            "private": false,
+            "verified": true,
+            "url": "https://bandcamp.com/example_fan"
+        },
+        "is_page_band_member": null,
+        "subscribed_to_page_band": null,
+        "bands": [],
+        "partner": false,
+        "is_admin": false,
+        "labels": []
+    },
+    "digital_items": [
+        {
+            "sale_id": 300000001,
+            "item_type": "a",
+            "item_id": 400000001,
+            "sale_release_date": null,
+            "quantity": 1,
+            "unit_price": 7.0,
+            "currency": "USD",
+            "sold_date": "23 Apr 2024 07:25:30 GMT",
+            "download_type": "a",
+            "download_id": 400000001,
+            "sale_item_state": "s",
+            "band_id": 500000001,
+            "band_name": "Example Artist",
+            "genre_id": 1,
+            "band_enabled": 1,
+            "has_enhanced_seller": 1,
+            "payment_id": 600000001,
+            "payment_type": "paypal",
+            "buyer_type": "u",
+            "buyer_id": 100000001,
+            "payment_email": "example.buyer@email.test",
+            "fulfillment_days": null,
+            "package_title": null,
+            "package_type_id": null,
+            "options_title": null,
+            "is_live_ticket": null,
+            "live_event_id": null,
+            "live_event_title": null,
+            "live_event_description": null,
+            "live_event_scheduled_start_date": null,
+            "live_event_scheduled_end_date": null,
+            "live_event_end_date": null,
+            "live_event_timezone_sym_id": null,
+            "service_type": null,
+            "shippable": null,
+            "marked_shipped_date": null,
+            "license_id": null,
+            "option_name": null,
+            "package_subdomain": "exampleartist",
+            "package_custom_domain": null,
+            "package_custom_domain_verified": null,
+            "package_slug_text": null,
+            "package_slug_type": null,
+            "art_id": 700000001,
+            "package_image_id": null,
+            "release_date": "01 Apr 2024 00:00:00 GMT",
+            "package_release_date": "01 Apr 2024 00:00:00 GMT",
+            "tralbum_id": 400000001,
+            "download_pref": null,
+            "killed": null,
+            "gift_sender_note": null,
+            "gift_state": null,
+            "gift_redeemed_date": null,
+            "gift_recipient_email_hidden": null,
+            "gift_recipient_email": null,
+            "gift_sender_name": null,
+            "gift_recipient_name": null,
+            "gift_card_value": null,
+            "gift_card_art_id": null,
+            "gift_card_currency": null,
+            "gift_card_recipient_email": null,
+            "label_mailing_list_address": null,
+            "label_mailing_list_unsubscribe": null,
+            "subscriber_only": null,
+            "tax_system": null,
+            "type": "album",
+            "is_preorder": null,
+            "package_type_name": null,
+            "includes_digital": true,
+            "nodl_desc": null,
+            "desc": "8 tracks",
+            "title": "Example Album 2024",
+            "track_count": 8,
+            "desc_track_count": 8,
+            "artist": "Example Artist",
+            "url_hints": {
+                "subdomain": "exampleartist",
+                "custom_domain": null,
+                "custom_domain_verified": null,
+                "slug": "example-album-2024",
+                "item_type": "a"
+            },
+            "page_url": "https://exampleartist.bandcamp.com/album/example-album-2024",
+            "thumb_title": "",
+            "payment_amt": "7 bucks",
+            "shareable": true,
+            "downloads": {
+                "mp3-v0": {
+                    "size_mb": null,
+                    "description": "MP3 V0",
+                    "encoding_name": "mp3-v0",
+                    "url": "https://bandcamp-downloads.example.com/download/album?enc=mp3-v0&id=400000001&sig=example123&sitem_id=300000001"
+                },
+                "mp3-320": {
+                    "size_mb": null,
+                    "description": "MP3 320",
+                    "encoding_name": "mp3-320",
+                    "url": "https://bandcamp-downloads.example.com/download/album?enc=mp3-320&id=400000001&sig=example123&sitem_id=300000001"
+                },
+                "flac": {
+                    "size_mb": null,
+                    "description": "FLAC",
+                    "encoding_name": "flac",
+                    "url": "https://bandcamp-downloads.example.com/download/album?enc=flac&id=400000001&sig=example123&sitem_id=300000001"
+                }
+            },
+            "ready": true,
+            "notify_me": false,
+            "notify_me_label": false,
+            "min_price": 5.0,
+            "is_pure_free": false,
+            "download_type_str": "Album",
+            "paid_for": true,
+            "is_name_your_price": false
+        }
+    ],
+    "fan_email": "example.buyer@email.test",
+    "packages": [],
+    "live_tickets": [],
+    "sent_gifts": [],
+    "download_formats": [
+        {
+            "name": "mp3-v0",
+            "db_column": "mp3_v0",
+            "file_extension": ".mp3",
+            "mime_type": "audio/mpeg",
+            "description": "MP3 V0",
+            "has_variants": true
+        },
+        {
+            "name": "mp3-320",
+            "db_column": "mp3_320",
+            "file_extension": ".mp3",
+            "mime_type": "audio/mpeg",
+            "description": "MP3 320",
+            "has_variants": true
+        },
+        {
+            "name": "flac",
+            "db_column": "flac",
+            "file_extension": ".flac",
+            "mime_type": "audio/flac",
+            "description": "FLAC",
+            "has_variants": true
+        }
+    ],
+    "download_format": "mp3-320",
+    "multidownload": false,
+    "gift_download_page": false,
+    "logged_out_fan": false,
+    "app_tralbum_url": "x-bandcamp://show_tralbum?tralbum_type=a&tralbum_id=400000001&play=1",
+    "download_difficulty": "easy",
+    "platform": null,
+    "is_redownload": true,
+    "has_downloads": true,
+    "download_items": [
+        {
+            "sale_id": 300000001,
+            "item_id": 400000001,
+            "download_type": "a",
+            "download_id": 400000001
+        }
+    ],
+    "currency_data": {
+        "info": {
+            "USD": {
+                "symbol": "USD",
+                "long": "US Dollar",
+                "prefix_utf8": "$",
+                "places": 2,
+                "a_dollar": 1.0
+            },
+            "EUR": {
+                "symbol": "EUR",
+                "long": "Euro",
+                "prefix_utf8": "€",
+                "places": 2,
+                "a_dollar": 0.85
+            }
+        },
+        "list": [
+            "USD",
+            "EUR"
+        ],
+        "rates": {
+            "USD": 1.0,
+            "EUR": 0.85
+        }
+    }
+}

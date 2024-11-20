@@ -12,9 +12,6 @@ use clap::Parser;
 #[derive(Parser, PartialEq, Eq)]
 #[command(name = "bandcamp-dl")]
 pub struct Cli {
-    #[arg(help = "The Bandcamp user account from which all releases must be downloaded.")]
-    user: String,
-
     #[arg(short, long, value_hint = clap::ValueHint::DirPath)]
     #[arg(
         help = "Cookie file to read, in the `JSON` format exported from `Get \"cookies.txt\" Locally` (see: https://github.com/kairi003/Get-cookies.txt-LOCALLY)."
@@ -66,7 +63,7 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
 
     // build app context
     let cookie_data = std::fs::read_to_string(cli.cookie_file)?;
-    let api_context = Arc::new(api::BandcampAPIContext::new(&cli.user, &cookie_data)?);
+    let api_context = Arc::new(api::BandcampAPIContext::new(&cookie_data)?);
 
     println!("Retrieving Bandcamp Summary...");
     let fan_summary = api_context.get_summary().await?;
