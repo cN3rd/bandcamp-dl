@@ -7,6 +7,7 @@ use std::{
     collections::HashMap,
     str::FromStr,
     sync::{Arc, OnceLock},
+    time::SystemTime,
 };
 
 use crate::error::{
@@ -84,6 +85,29 @@ pub struct ParsedFanpageData {
     pub collection_data: CollectionData,
     pub hidden_data: CollectionData,
     pub item_cache: ItemCache,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ParsedFanCollectionSummary {
+    pub fan_id: i64,
+    pub collection_summary: FanCollectionSummary,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FanCollectionSummary {
+    pub fan_id: i64,
+    pub username: String,
+    pub url: String,
+    pub tralbum_lookup: Option<HashMap<String, TrAlbumLookupItem>>,
+    pub followers: Option<Vec<()>>, // TODO
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TrAlbumLookupItem {
+    pub item_type: String,
+    pub item_id: i64,
+    pub band_id: i64,
+    pub purchased: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -173,6 +197,15 @@ fn data_blob_regex() -> &'static Regex {
     })
 }
 
+fn generate_token(item_id: i64, item_type: &str) -> String {
+    let timestamp = SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    format!("{timestamp}:{item_id}:{item_type}::")
+}
+
 pub type SaleIdUrlMap = HashMap<String, String>;
 
 impl BandcampAPIContext {
@@ -186,73 +219,46 @@ impl BandcampAPIContext {
         Ok(Self { client, user_name })
     }
 
-    pub async fn get_fanpage_data(&self) -> Result<ParsedFanpageData, InformationRetrievalError> {
+    pub async fn get_summary(
+        &self,
+    ) -> Result<ParsedFanCollectionSummary, InformationRetrievalError> {
         let response = self
             .client
-            .get(format!("https://bandcamp.com/{}", self.user_name))
+            .get("https://bandcamp.com/api/fan/2/collection_summary")
             .send()
             .await?;
-        let response_body = response.text().await?;
+        let response_text = response.text().await?;
+        let parsed_summary = serde_json::from_str::<ParsedFanCollectionSummary>(&response_text)?;
 
-        let data_blob = data_blob_regex()
-            .captures(&response_body)
-            .ok_or(InformationRetrievalError::DataBlobNotFound)?
-            .get(1)
-            .ok_or(InformationRetrievalError::DataBlobNotFound)?
-            .as_str();
-        let data_blob = htmlize::unescape(data_blob);
-
-        Ok(serde_json::from_str::<ParsedFanpageData>(&data_blob)?)
+        Ok(parsed_summary)
     }
 
     pub async fn get_all_releases(
         &self,
-        fanpage_data: &ParsedFanpageData,
+        summary: &ParsedFanCollectionSummary,
         include_hidden: bool,
     ) -> Result<SaleIdUrlMap, ReleaseRetrievalError> {
-        let mut all_downloads = fanpage_data
-            .collection_data
-            .redownload_urls
-            .clone()
-            .ok_or(ReleaseRetrievalError::NoDownloadLinksFound)?;
+        let mut collection = SaleIdUrlMap::new();
 
-        if all_downloads.is_empty() {
-            return Err(ReleaseRetrievalError::NoDownloadLinksFound);
-        }
+        let first_item = summary
+            .collection_summary
+            .tralbum_lookup
+            .as_ref()
+            .unwrap()
+            .iter()
+            .next()
+            .unwrap();
 
-        if !include_hidden {
-            let hidden_items = &fanpage_data.item_cache.hidden;
-            all_downloads = all_downloads
-                .into_iter()
-                .filter(|(k, _)| !hidden_items.contains_key(k))
-                .collect::<HashMap<_, _>>(); // TODO: fix this
-        }
+        let token = generate_token(first_item.1.item_id, &first_item.1.item_type);
 
-        // Get the rest of the non-hidden collection
-        if let Some(item_count) = fanpage_data.collection_data.item_count {
-            if item_count > fanpage_data.collection_data.batch_size {
-                let fan_id: i64 = fanpage_data.fan_data.fan_id;
-                if let Some(last_token) = &fanpage_data.collection_data.last_token {
-                    all_downloads.extend(
-                        self.get_webui_download_urls(fan_id, last_token, "collection_items")
-                            .await?
-                            .into_iter(),
-                    );
-                }
+        collection.extend(
+            self.get_webui_download_urls(summary.fan_id, &token, "collection_items")
+                .await?,
+        );
 
-                if include_hidden {
-                    if let Some(last_token) = &fanpage_data.hidden_data.last_token {
-                        all_downloads.extend(
-                            self.get_webui_download_urls(fan_id, last_token, "hidden_items")
-                                .await?
-                                .into_iter(),
-                        );
-                    }
-                }
-            }
-        }
+        // TODO: include hidden items
 
-        Ok(all_downloads)
+        Ok(collection)
     }
 
     pub async fn get_webui_download_urls(
@@ -263,7 +269,7 @@ impl BandcampAPIContext {
     ) -> Result<SaleIdUrlMap, ReleaseRetrievalError> {
         let mut more_available = true;
         let mut last_token = last_token.to_owned();
-        let mut download_urls: HashMap<String, String> = HashMap::new();
+        let mut download_urls = SaleIdUrlMap::new();
 
         while more_available {
             let response = self
@@ -281,8 +287,7 @@ impl BandcampAPIContext {
             let parsed_collection_data: ParsedCollectionItems =
                 serde_json::from_str(&response_data)?;
 
-            download_urls.extend(parsed_collection_data.redownload_urls.into_iter());
-
+            download_urls.extend(parsed_collection_data.redownload_urls);
             more_available = parsed_collection_data.more_available;
             last_token = parsed_collection_data.last_token;
         }

@@ -68,12 +68,12 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
     let cookie_data = std::fs::read_to_string(cli.cookie_file)?;
     let api_context = Arc::new(api::BandcampAPIContext::new(&cli.user, &cookie_data)?);
 
-    println!("Retrieving Bandcamp Fan Page Data...");
-    let fanpage_data = api_context.get_fanpage_data().await?;
+    println!("Retrieving Bandcamp Summary...");
+    let fan_summary = api_context.get_summary().await?;
 
     println!("Retrieving all releases...");
     let releases = api_context
-        .get_all_releases(&fanpage_data, !cli.skip_hidden)
+        .get_all_releases(&fan_summary, !cli.skip_hidden)
         .await?;
 
     // finding releases not found in regular scopes
