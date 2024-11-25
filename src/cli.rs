@@ -102,12 +102,14 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
         let (result, digital_item, key) = result?;
         let url = result?;
 
-        downloads.push(Download::try_from(url.as_str()).unwrap());
+        let cached_item =
+            DownloadCacheRelease::new(&key, &digital_item.title, 2022, &digital_item.artist); // TODO year
+        download_cache.insert(key.clone(), cached_item);
 
         if !cli.dry_run {
-            let cached_item =
-                DownloadCacheRelease::new(&key, &digital_item.title, 2022, &digital_item.artist); // TODO year
-            download_cache.insert(key.clone(), cached_item);
+            let mut download = Download::try_from(url.as_str()).unwrap();
+            download.filename = format!("{key}-{0}.zip", cli.audio_format);
+            downloads.push(download);
         }
 
         println!(
@@ -116,13 +118,15 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
         );
     }
 
-    if !cli.dry_run {
+    if cli.dry_run {
+        println!("Dry run, so not downloading anything...");
         return Ok(());
     }
 
     let downloader = DownloaderBuilder::new().directory(download_folder).build();
     downloader.download(&downloads).await;
 
+    println!("Updating download cache...");
     std::fs::write(cache_file_path, serialize_download_cache(&download_cache))?;
 
     Ok(())
