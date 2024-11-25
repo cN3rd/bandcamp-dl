@@ -139,8 +139,8 @@ pub struct CollectionData {
 #[derive(Serialize, Deserialize)]
 pub struct ParsedCollectionItems {
     pub more_available: bool,
-    pub last_token: String,
-    pub redownload_urls: HashMap<String, String>,
+    pub last_token: Option<String>,
+    pub redownload_urls: Option<HashMap<String, String>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -150,7 +150,7 @@ pub struct ParsedBandcampData {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DownloadData {
-    pub size_mb: String,
+    pub size_mb: Option<String>,
     pub description: String,
     pub encoding_name: String,
     pub url: String,
@@ -170,6 +170,7 @@ pub struct DigitalItem {
 
 #[derive(Serialize, Deserialize)]
 pub struct ParsedStatDownload {
+    pub result: Option<String>,
     pub download_url: Option<String>,
     pub url: String,
 }
