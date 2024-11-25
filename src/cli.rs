@@ -77,6 +77,11 @@ pub async fn run_program(cli: Cli) -> anyhow::Result<()> {
     println!("Finding new releases...");
     let items_to_download = find_new_releases(releases, &download_cache, &api_context).await?;
 
+    if items_to_download.is_empty() {
+        println!("No new releases to fetch, exiting");
+        return Ok(());
+    }
+
     // fetch all download links
     println!("Fetching releases in {}...", cli.audio_format);
 
