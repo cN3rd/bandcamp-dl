@@ -175,10 +175,6 @@ pub struct ParsedStatDownload {
     pub url: String,
 }
 
-pub struct BandcampAPIContext {
-    pub client: Client,
-}
-
 fn stat_response_regex() -> &'static Regex {
     static STAT_DOWNLOAD_REGEX: OnceLock<Regex> = OnceLock::new();
     STAT_DOWNLOAD_REGEX.get_or_init(|| {
@@ -204,6 +200,10 @@ fn generate_token(item_id: i64, item_type: &str) -> String {
         .as_secs();
 
     format!("{timestamp}:{item_id}:{item_type}::")
+}
+
+pub struct BandcampAPIContext {
+    pub client: ClientWithMiddleware,
 }
 
 pub type SaleIdUrlMap = HashMap<String, String>;
