@@ -109,7 +109,7 @@ impl Middleware for RetryMiddleware {
         extensions: &mut Extensions,
         next: Next<'_>,
     ) -> Result<Response> {
-        for n in 0..self.max_retries {
+        for _ in 0..self.max_retries {
             if *self.is_waiting.lock().unwrap() {
                 sleep(Duration::from_millis(100)).await;
                 continue;

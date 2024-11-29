@@ -46,9 +46,6 @@ pub enum ReleaseRetrievalError {
 
     #[error("Json parse error: {0}")]
     JsonParseError(#[from] serde_json::Error),
-
-    #[error("No download links found")]
-    NoDownloadLinksFound,
 }
 
 #[derive(Error, Debug)]
