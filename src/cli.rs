@@ -9,37 +9,35 @@ use crate::{
 };
 use clap::Parser;
 
-#[derive(Parser, PartialEq, Eq)]
+#[derive(Parser, Debug, PartialEq, Eq)]
 #[command(name = "bandcamp-dl")]
 pub struct Cli {
-    #[arg(short, long, value_hint = clap::ValueHint::DirPath)]
+    #[arg(short, long, value_hint = clap::ValueHint::FilePath)]
     #[arg(
         help = "Cookie file to read, in the `JSON` format exported from `Get \"cookies.txt\" Locally` (see: https://github.com/kairi003/Get-cookies.txt-LOCALLY)."
     )]
     cookie_file: std::path::PathBuf,
 
     #[arg(long)]
-    #[arg(help = "Don't download hidden items in the collection.")]
+    #[arg(help = "Don't download hidden items in the collection")]
     skip_hidden: bool,
 
     #[arg(long, value_enum, default_value_t = api::DownloadFormat::Flac)]
-    #[arg(help = "The audio format requested for newly downloaded audio.")]
+    #[arg(help = "The audio format requested for newly downloaded audio")]
     audio_format: api::DownloadFormat,
 
     #[arg(short, long, value_hint = clap::ValueHint::DirPath)]
-    #[arg(
-        help = "Folder to download files to. If no value is given, defaults to the current directory."
-    )]
+    #[arg(help = "Folder to download files to. Defaults to current directory")]
     download_folder: Option<std::path::PathBuf>,
 
     #[arg(long, value_hint = clap::ValueHint::FilePath)]
     #[arg(
-        help = "Path to cache file. If no value is given, defaults to \"bandcamp-collection-downloader.cache\" in the download_folder. "
+        help = "Path to cache file. Defaults to \"bandcamp-collection-downloader.cache\" in download_folder"
     )]
     cache_file: Option<std::path::PathBuf>,
 
-    #[arg(long, action)]
-    #[arg(help = "Fetch information correctly but don't actually download.")]
+    #[arg(long)]
+    #[arg(help = "Fetch information but don't download anything")]
     dry_run: bool,
 }
 
