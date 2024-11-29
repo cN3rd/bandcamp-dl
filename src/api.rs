@@ -265,8 +265,12 @@ impl BandcampAPIContext {
                 .await?,
         );
 
-        // TODO: include hidden items
-
+        if include_hidden {
+            collection.extend(
+                self.get_webui_download_urls(summary.fan_id, &token, "hidden_items")
+                    .await?,
+            );
+        }
         Ok(collection)
     }
 
@@ -276,29 +280,38 @@ impl BandcampAPIContext {
         last_token: &str,
         collection_name: &str,
     ) -> Result<SaleIdUrlMap, ReleaseRetrievalError> {
-        let mut more_available = true;
-        let mut last_token = last_token.to_owned();
         let mut download_urls = SaleIdUrlMap::new();
+        let mut current_token = last_token.to_string();
 
-        while more_available {
+        loop {
+            let body = format!(
+                "{{\"fan_id\": {fan_id}, \"older_than_token\": \"{current_token}\", \"count\":100000}}"
+            );
+
             let response = self
                 .client
                 .post(format!(
                     "https://bandcamp.com/api/fancollection/1/{collection_name}"
                 ))
-                .body(format!(
-                    "{{\"fan_id\": {fan_id}, \"older_than_token\": \"{last_token}\"}}"
-                ))
+                .body(body)
                 .send()
                 .await?;
 
-            let response_data = response.text().await?;
             let parsed_collection_data: ParsedCollectionItems =
-                serde_json::from_str(&response_data)?;
+                serde_json::from_str(&response.text().await?)?;
 
-            download_urls.extend(parsed_collection_data.redownload_urls);
-            more_available = parsed_collection_data.more_available;
-            last_token = parsed_collection_data.last_token;
+            let Some(redownload_urls) = parsed_collection_data.redownload_urls else {
+                break;
+            };
+
+            download_urls.extend(redownload_urls);
+
+            if !parsed_collection_data.more_available {
+                break;
+            }
+            current_token = parsed_collection_data
+                .last_token
+                .expect("Server returned more_available=true but no last_token");
         }
 
         Ok(download_urls)
