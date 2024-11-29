@@ -22,9 +22,9 @@ pub struct Cli {
     #[arg(help = "Don't download hidden items in the collection")]
     skip_hidden: bool,
 
-    #[arg(long, value_enum, default_value_t = api::DownloadFormat::Flac)]
+    #[arg(long, value_enum, default_value_t = api::data::DownloadFormat::Flac)]
     #[arg(help = "The audio format requested for newly downloaded audio")]
-    audio_format: api::DownloadFormat,
+    audio_format: api::data::DownloadFormat,
 
     #[arg(short, long, value_hint = clap::ValueHint::DirPath)]
     #[arg(help = "Folder to download files to. Defaults to current directory")]
@@ -134,7 +134,7 @@ async fn find_new_releases(
     releases: api::SaleIdUrlMap,
     download_cache: &cache::DownloadCache,
     api_context: &Arc<api::BandcampAPIContext>,
-) -> Result<HashMap<String, api::DigitalItem>, anyhow::Error> {
+) -> Result<HashMap<String, api::data::DigitalItem>, anyhow::Error> {
     let mut digital_item_tasks = JoinSet::new();
     for (key, item_url) in &releases {
         if !download_cache.contains_key(key) {
