@@ -4,7 +4,7 @@ use reqwest_cookie_store::CookieStoreMutex;
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use std::{
     collections::HashMap,
-    sync::{Arc, OnceLock},
+    sync::{Arc, LazyLock},
     time::{Duration, SystemTime},
 };
 
@@ -18,23 +18,19 @@ use crate::{
 
 pub mod data;
 
-fn stat_response_regex() -> &'static Regex {
-    static STAT_DOWNLOAD_REGEX: OnceLock<Regex> = OnceLock::new();
-    STAT_DOWNLOAD_REGEX.get_or_init(|| {
-        Regex::new(
-            r"if\s*\(\s*window\.Downloads\s*\)\s*\{\s*Downloads\.statResult\s*\(\s*(.*)\s*\)\s*};",
-        )
-        .expect("Regex pattern for \"stat_response_regex\" should compile successfully")
-    })
-}
+static STAT_RESPONSE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"if\s*\(\s*window\.Downloads\s*\)\s*\{\s*Downloads\.statResult\s*\(\s*(.*)\s*\)\s*};",
+    )
+    .expect("Regex pattern for \"stat_response_regex\" should compile successfully")
+});
 
-fn data_blob_regex() -> &'static Regex {
-    static DATA_BLOB_REGEX: OnceLock<Regex> = OnceLock::new();
-    DATA_BLOB_REGEX.get_or_init(|| {
-        Regex::new(r#"(?s)<div\s+(?:[^>]*?\s+)?id="pagedata"(?:\s+[^>]*?)?\s+data-blob="((?:[^"\\]|\\.)*)""#)
-            .expect("Regex pattern for \"data_blob_regex\" should compile successfully")
-    })
-}
+static DATA_BLOB_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"(?s)<div\s+(?:[^>]*?\s+)?id="pagedata"(?:\s+[^>]*?)?\s+data-blob="((?:[^"\\]|\\.)*)""#,
+    )
+    .expect("Regex pattern for \"data_blob_regex\" should compile successfully")
+});
 
 fn generate_token(item_id: i64, item_type: &str) -> String {
     let timestamp = SystemTime::now()
@@ -163,7 +159,7 @@ impl BandcampAPIContext {
         let response = self.client.get(item_url).send().await?;
         let response_data = response.text().await?;
 
-        let data_blob = data_blob_regex()
+        let data_blob = DATA_BLOB_REGEX
             .captures(&response_data)
             .ok_or(InformationRetrievalError::DataBlobNotFound)?
             .get(1)
@@ -253,7 +249,7 @@ pub fn get_unqualified_digital_download_link(
 pub fn get_qualified_digital_download_url(
     stat_response_body: &str,
 ) -> Result<String, DigitalDownloadError> {
-    let inner_json = stat_response_regex()
+    let inner_json = STAT_RESPONSE_REGEX
         .captures(stat_response_body)
         .ok_or(DigitalDownloadError::JsonBodyNotFound)?
         .get(1)
