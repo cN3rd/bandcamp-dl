@@ -14,6 +14,7 @@ mod cache;
 mod cli;
 mod cookies;
 mod error;
+mod middlewares;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

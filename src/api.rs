@@ -2,16 +2,21 @@ use clap::ValueEnum;
 use regex_lite::Regex;
 use reqwest::Client;
 use reqwest_cookie_store::CookieStoreMutex;
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     str::FromStr,
     sync::{Arc, OnceLock},
-    time::SystemTime,
+    time::{Duration, SystemTime},
 };
 
-use crate::error::{
-    ContextCreationError, DigitalDownloadError, InformationRetrievalError, ReleaseRetrievalError,
+use crate::{
+    error::{
+        ContextCreationError, DigitalDownloadError, InformationRetrievalError,
+        ReleaseRetrievalError,
+    },
+    middlewares::{RateLimitMiddleware, RetryMiddleware},
 };
 
 #[allow(non_camel_case_types)]
@@ -214,6 +219,11 @@ impl BandcampAPIContext {
         let client = Client::builder()
             .cookie_provider(Arc::new(CookieStoreMutex::new(cookie_store)))
             .build()?;
+
+        let client = ClientBuilder::new(client)
+            .with(RetryMiddleware::new(5))
+            .with(RateLimitMiddleware::new(10, Duration::from_secs(10)))
+            .build();
 
         Ok(Self { client })
     }

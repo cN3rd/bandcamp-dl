@@ -26,11 +26,11 @@ pub enum InformationRetrievalError {
     #[error("HTTP requesting error: {0}")]
     HttpRequestError(#[from] reqwest::Error),
 
+    #[error("HTTP requesting error: {0}")]
+    HttpMiddlewareRequestError(#[from] reqwest_middleware::Error),
+
     #[error("Json parsing error: {0}")]
     JsonParseError(#[from] serde_json::Error),
-
-    #[error("PageData element not found")]
-    PageDataNotFound,
 
     #[error("Data blob not found")]
     DataBlobNotFound,
@@ -40,6 +40,9 @@ pub enum InformationRetrievalError {
 pub enum ReleaseRetrievalError {
     #[error("HTTP requesting error: {0}")]
     HttpRequestError(#[from] reqwest::Error),
+
+    #[error("HTTP requesting error: {0}")]
+    HttpMiddlewareRequestError(#[from] reqwest_middleware::Error),
 
     #[error("Json parse error: {0}")]
     JsonParseError(#[from] serde_json::Error),
@@ -52,6 +55,9 @@ pub enum ReleaseRetrievalError {
 pub enum DigitalDownloadError {
     #[error("HTTP requesting error: {0}")]
     HttpRequestError(#[from] reqwest::Error),
+
+    #[error("HTTP requesting error: {0}")]
+    HttpMiddlewareRequestError(#[from] reqwest_middleware::Error),
 
     #[error("Json parsing error: {0}")]
     JsonParseError(#[from] serde_json::Error),
