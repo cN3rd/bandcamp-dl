@@ -53,6 +53,9 @@ pub enum ReleaseRetrievalError {
 
 #[derive(Error, Debug)]
 pub enum DigitalDownloadError {
+    #[error("Failed to pull links due to JSON error, with retry url: {0}")]
+    JsonResponseErrorCode(String),
+
     #[error("HTTP requesting error: {0}")]
     HttpRequestError(#[from] reqwest::Error),
 

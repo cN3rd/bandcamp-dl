@@ -356,11 +356,22 @@ impl BandcampAPIContext {
         &self,
         download_link: &str,
     ) -> Result<String, DigitalDownloadError> {
-        get_qualified_digital_download_url(
-            &self
-                .retrieve_digital_download_stat_data(download_link)
-                .await?,
-        )
+        let mut actual_dl_link = download_link.to_string();
+        loop {
+            let inner = self
+                .retrieve_digital_download_stat_data(&actual_dl_link)
+                .await?;
+
+            match get_qualified_digital_download_url(&inner) {
+                Ok(url) => return Ok(url),
+                Err(DigitalDownloadError::JsonResponseErrorCode(url)) => {
+                    actual_dl_link = url;
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
     }
 
     pub async fn retrieve_digital_download_stat_data(
@@ -373,7 +384,8 @@ impl BandcampAPIContext {
             + "&.vrs=1"
             + "&.rand="
             + &fastrand::i32(..).to_string();
-        let stat_download_response = self.client.get(stat_download_url).send().await?;
+        let stat_download_response: reqwest::Response =
+            self.client.get(stat_download_url).send().await?;
         let stat_download_response_body = stat_download_response.text().await?;
 
         Ok(stat_download_response_body)
@@ -410,6 +422,12 @@ pub fn get_qualified_digital_download_url(
         .as_str();
 
     let inner_data: ParsedStatDownload = serde_json::from_str(inner_json)?;
+    if Some("err".into()) == inner_data.result {
+        return Err(DigitalDownloadError::JsonResponseErrorCode(format!(
+            "https://{}",
+            inner_data.url
+        )));
+    }
 
     inner_data
         .download_url
